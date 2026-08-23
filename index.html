@@ -201,6 +201,7 @@ input:focus{border-color:var(--info)}
   font-variant-numeric:tabular-nums;
 }
 .chip:active{background:var(--line)}
+.chip.on{background:rgba(46,160,67,.16);border-color:rgba(46,160,67,.45);color:var(--accent-hi)}
 .acts-row{display:flex;gap:9px;margin-top:16px}
 .acts-row .btn{height:47px}
 .link{color:var(--info);font-size:13.5px;font-weight:560;padding:6px 0}
@@ -218,8 +219,49 @@ input:focus{border-color:var(--info)}
 .menu button.danger svg{stroke:var(--danger)}
 .menu button[disabled]{opacity:.36;pointer-events:none}
 
+/* verification */
+h3.sec{
+  margin:20px 0 8px;font-size:11px;font-weight:650;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--faint);
+}
+.checks{list-style:none;padding:0;margin:0 0 14px;display:flex;flex-direction:column;gap:1px}
+.checks li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:14px;line-height:1.4}
+.checks .mk{
+  width:18px;height:18px;flex:none;border-radius:50%;margin-top:1px;
+  display:grid;place-items:center;font-size:11px;font-weight:800;
+}
+.checks .ok .mk{background:rgba(46,160,67,.18);color:var(--accent-hi)}
+.checks .no .mk{background:rgba(248,81,73,.16);color:var(--danger)}
+.checks .adv .mk{background:rgba(210,153,34,.16);color:var(--warn)}
+.checks .pend .mk{background:var(--bg-elev-2);color:var(--faint)}
+.checks .pend .lbl{color:var(--faint)}
+.checks .lbl{flex:1;min-width:0}
+.checks .ok .lbl{color:var(--muted)}
+.checks .no .lbl{color:var(--text);font-weight:560}
+.checks .why{display:block;margin-top:2px;font-size:12.5px;color:var(--muted);font-weight:400}
+.checks .no .why{color:#ffa198}
+.checks .adv .why{color:#e3b341}
+.checks .rollup{padding:0;font-size:14px;color:var(--info);font-weight:560;text-align:left}
+.checks .fix{
+  margin-top:6px;padding:6px 11px;border-radius:9px;font-size:12.5px;font-weight:600;
+  background:var(--bg-elev-2);border:1px solid var(--line);color:var(--info);
+}
+.blockmsg{margin:9px 0 0;font-size:12.5px;color:var(--danger);text-align:center}
+.blockmsg:empty{display:none}
+
+/* audit table */
+.audit{border:1px solid var(--line-soft);border-radius:12px;overflow:hidden;font-variant-numeric:tabular-nums}
+.audit .r{display:flex;justify-content:space-between;gap:10px;padding:9px 13px;background:var(--bg);border-bottom:1px solid var(--line-soft);font-size:14px}
+.audit .r:last-child{border-bottom:0}
+.audit .r.sum{background:var(--bg-elev-2);font-weight:640}
+.audit .r.adj{background:rgba(210,153,34,.07)}
+.audit .who2{min-width:0;flex:1}
+.audit .nm{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.audit .calc{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+.audit .amt2{flex:none;text-align:right;font-weight:640}
+
 /* settlement */
-.tx{display:flex;flex-direction:column;gap:8px;margin:4px 0 0}
+.tx{display:flex;flex-direction:column;gap:8px;margin:4px 0 0;list-style:none;padding:0}
 .tx li{
   display:flex;align-items:center;gap:9px;
   background:var(--bg);border:1px solid var(--line-soft);
@@ -357,14 +399,39 @@ code.code{
 <dialog id="dlgFinish"><div class="sheet">
   <h2>Settle up</h2>
   <p class="sub" id="fSub"></p>
+
+  <ul class="checks" id="fChecks"></ul>
   <div id="fWarn"></div>
-  <div class="scores" id="fScores"></div>
-  <ul class="tx" id="fTx" style="list-style:none;padding:0"></ul>
+
+  <h3 class="sec">Audit</h3>
+  <div class="audit" id="fAudit"></div>
+
+  <h3 class="sec">Payments</h3>
+  <ul class="tx" id="fTx"></ul>
+
   <div class="acts-row">
     <button type="button" class="btn ghost" data-close>Back</button>
     <button type="button" class="btn primary" id="fEnd">End game</button>
   </div>
+  <p class="blockmsg" id="fBlock"></p>
 </div></dialog>
+
+<dialog id="dlgAdjust"><form method="dialog" class="sheet" id="formAdjust">
+  <h2>Record a discrepancy</h2>
+  <p class="sub" id="aSub"></p>
+  <div class="note info">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    <span>Use this only when a recount will not fix it. The amount is recorded in the
+    game and shown in the audit — it is never hidden.</span>
+  </div>
+  <label class="f"><span>Who absorbs it</span></label>
+  <div class="chips" id="aWho"></div>
+  <label class="f"><span>Reason (optional)</span><input type="text" id="aReason" maxlength="60" autocomplete="off" placeholder="e.g. chip lost under the table"></label>
+  <div class="acts-row">
+    <button type="button" class="btn ghost" data-close>Cancel</button>
+    <button type="submit" class="btn primary">Record</button>
+  </div>
+</form></dialog>
 
 <dialog id="dlgSettings"><div class="sheet">
   <h2>Settings</h2>
@@ -506,6 +573,7 @@ function fold() {
 
   var settings = { name: DEFAULTS.name, buyIn: DEFAULTS.buyIn, currency: DEFAULTS.currency, chipsPerBuyIn: DEFAULTS.chipsPerBuyIn };
   var players = {}, order = [], finishedAt = 0;
+  var orphans = [], adjustment = null, adjustmentAt = -1;
 
   // Pass 1 creates every player first. Timestamps can't be trusted to order
   // a player ahead of their own buy-ins: two commits land in the same
@@ -526,61 +594,259 @@ function fold() {
         break;
       case "player_rename": if (p) p.name = e.name; break;
       case "player_remove": if (p) p.gone = true; break;
-      case "buyin": if (p) p.buyins.push({ id: e.id, amount: num(e.amount), ts: e.ts }); break;
+      case "buyin":
+        // A buy-in whose player_add has not arrived would vanish silently and
+        // take real money out of the pot with it. Record it instead.
+        if (p) p.buyins.push({ id: e.id, amount: num(e.amount), ts: e.ts });
+        else orphans.push({ type: "buyin", id: e.id, playerId: e.playerId });
+        break;
       case "cashout":
-        if (p && e.ts >= p.chipsAt) { p.chips = num(e.chips); p.chipsAt = e.ts; }
+        if (p) { if (e.ts >= p.chipsAt) { p.chips = num(e.chips); p.chipsAt = e.ts; } }
+        else orphans.push({ type: "cashout", id: e.id, playerId: e.playerId });
         break;
       case "cashout_clear":
         if (p && e.ts >= p.chipsAt) { p.chips = null; p.chipsAt = e.ts; }
+        break;
+      case "adjustment":
+        // last-write-wins, never additive
+        if (e.ts >= adjustmentAt) {
+          adjustmentAt = e.ts;
+          adjustment = e.value && e.value.amountC ? e.value : null;
+        }
         break;
       case "game_finish": finishedAt = Math.max(finishedAt, e.ts); break;
       case "game_reopen": if (e.ts >= finishedAt) finishedAt = 0; break;
     }
   });
 
-  var rate = settings.chipsPerBuyIn > 0 ? (num(settings.buyIn) / num(settings.chipsPerBuyIn)) : 1;
-  var rows = [], totalIn = 0, totalOut = 0, counted = 0;
+  var removedWithBuyins = [];
+  order.forEach(function (pid) {
+    var p = players[pid];
+    if (p && p.gone && p.buyins.length) {
+      var lost = 0;
+      p.buyins.forEach(function (b) { lost += cents(b.amount); });
+      removedWithBuyins.push({ name: p.name, amountC: lost });
+    }
+  });
+
+  var buyInC = cents(settings.buyIn);
+  var perBuyIn = num(settings.chipsPerBuyIn);
+  var rate = perBuyIn > 0 ? (num(settings.buyIn) / perBuyIn) : 1;
+  var rows = [], totalInC = 0, totalOutC = 0, counted = 0;
 
   order.forEach(function (pid) {
     var p = players[pid];
     if (!p || p.gone) return;
-    var inAmt = 0;
-    p.buyins.forEach(function (b) { inAmt += b.amount; });
+    var inC = 0;
+    p.buyins.forEach(function (b) { inC += cents(b.amount); });
     var hasChips = p.chips !== null && p.chips !== undefined;
-    var outAmt = hasChips ? p.chips * rate : 0;
-    totalIn += inAmt;
-    if (hasChips) { totalOut += outAmt; counted++; }
+    totalInC += inC;
+    if (hasChips) counted++;
     rows.push({
       id: p.id, name: p.name, at: p.at,
-      buyins: p.buyins, count: p.buyins.length, in: inAmt,
-      chips: hasChips ? p.chips : null, out: outAmt,
-      net: hasChips ? outAmt - inAmt : 0, done: hasChips
+      buyins: p.buyins, count: p.buyins.length, inC: inC,
+      chips: hasChips ? p.chips : null, outC: 0,
+      netC: 0, done: hasChips, adjC: 0
     });
   });
 
-  return { settings: settings, rate: rate, rows: rows, totalIn: totalIn, totalOut: totalOut, counted: counted, finishedAt: finishedAt };
+  totalOutC = allocateChips(rows, buyInC, perBuyIn);
+  rows.forEach(function (r) { r.netC = r.done ? r.outC - r.inC : -r.inC * 0; });
+
+  // An adjustment records money that the chip count cannot explain, so the book
+  // closes on the truth rather than on an override. Last-write-wins, never
+  // additive: two devices each recording one must not double-count.
+  var adjustedC = applyAdjustment(rows, adjustment, totalInC, totalOutC);
+
+  return {
+    settings: settings, rate: rate, rows: rows,
+    totalInC: totalInC, totalOutC: totalOutC + adjustedC,
+    rawOutC: totalOutC, adjustment: adjustment, adjustedC: adjustedC,
+    counted: counted, finishedAt: finishedAt,
+    orphans: orphans, removedWithBuyins: removedWithBuyins
+  };
 }
 function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
 
-/* ---- settlement: fewest transfers that clear every balance ---- */
+/* Chip values rarely divide into whole cents: 3 chips to a EUR 20 buy-in makes
+   one chip worth 6.666... Rounding each player independently drifts a cent per
+   player, so the column would not sum to the pot. Allocate by largest remainder
+   instead, which makes the parts add up to exactly the value of the chips on the
+   table. Ties break on player id so every device computes an identical split. */
+function allocateChips(rows, buyInC, perBuyIn) {
+  var counted = rows.filter(function (r) { return r.done; });
+  if (!counted.length || !(perBuyIn > 0)) return 0;
+
+  var totalChips = 0;
+  counted.forEach(function (r) { totalChips += num(r.chips); });
+  var targetC = Math.round(totalChips * buyInC / perBuyIn);
+
+  var acc = 0, parts = [];
+  counted.forEach(function (r) {
+    var exact = num(r.chips) * buyInC / perBuyIn;
+    var floor = Math.floor(exact);
+    r.outC = floor;
+    acc += floor;
+    parts.push({ r: r, frac: exact - floor });
+  });
+  parts.sort(function (a, b) {
+    return (b.frac - a.frac) || (a.r.id < b.r.id ? -1 : a.r.id > b.r.id ? 1 : 0);
+  });
+  var left = targetC - acc;
+  for (var i = 0; i < left && parts.length; i++) parts[i % parts.length].r.outC += 1;
+  return targetC;
+}
+
+/* Money is held as an integer number of minor units. Floats are only ever what
+   the user typed; every total, net and transfer is computed on integers so the
+   figures on screen always reconcile exactly. */
+function cents(x) { return Math.round(num(x) * 100); }
+
+/* Spread an adjustment across the rows. Returns the total cents added, which
+   always equals the adjustment so the pot balances to zero. */
+function applyAdjustment(rows, adj, totalInC, totalOutC) {
+  if (!adj || !rows.length) return 0;
+  var amountC = Math.round(num(adj.amountC));
+  if (!amountC) return 0;
+
+  if (adj.mode === "player") {
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].id === adj.playerId) {
+        rows[i].adjC = amountC;
+        rows[i].netC += amountC;
+        return amountC;
+      }
+    }
+    return 0;
+  }
+
+  // split: even share, with the leftover cents handed out one each so the
+  // parts sum to exactly the whole
+  var n = rows.length;
+  var sign = amountC < 0 ? -1 : 1;
+  var abs = Math.abs(amountC);
+  var base = Math.floor(abs / n), extra = abs - base * n;
+  for (var j = 0; j < n; j++) {
+    var share = sign * (base + (j < extra ? 1 : 0));
+    rows[j].adjC = share;
+    rows[j].netC += share;
+  }
+  return amountC;
+}
+
+/* ---- settlement: fewest transfers that clear every balance ----
+   Works entirely in integer minor units. On integers the greedy pass is exact:
+   each debtor's payments sum to their deficit and each creditor's receipts sum
+   to their surplus, with no epsilon and no lost cent. Anything left unmatched
+   is returned as residualC rather than quietly dropped. */
 function settle(rows) {
-  var EPS = 0.005, tx = [];
-  var owe = [], due = [];
+  var tx = [], owe = [], due = [];
   rows.forEach(function (r) {
-    if (r.net < -EPS) owe.push({ name: r.name, rem: -r.net });
-    else if (r.net > EPS) due.push({ name: r.name, rem: r.net });
+    if (r.netC < 0) owe.push({ name: r.name, id: r.id, rem: -r.netC });
+    else if (r.netC > 0) due.push({ name: r.name, id: r.id, rem: r.netC });
   });
   owe.sort(function (a, b) { return b.rem - a.rem; });
   due.sort(function (a, b) { return b.rem - a.rem; });
+
   var i = 0, j = 0, guard = 0;
-  while (i < owe.length && j < due.length && guard++ < 999) {
+  while (i < owe.length && j < due.length && guard++ < 9999) {
     var amt = Math.min(owe[i].rem, due[j].rem);
-    if (amt > EPS) tx.push({ from: owe[i].name, to: due[j].name, amount: amt });
+    if (amt > 0) tx.push({ from: owe[i].name, to: due[j].name, amountC: amt });
     owe[i].rem -= amt; due[j].rem -= amt;
-    if (owe[i].rem <= EPS) i++;
-    if (due[j].rem <= EPS) j++;
+    if (owe[i].rem === 0) i++;
+    if (due[j].rem === 0) j++;
   }
-  return tx;
+
+  var residualC = 0;
+  owe.forEach(function (o) { residualC += o.rem; });
+  due.forEach(function (d) { residualC += d.rem; });
+  return { transfers: tx, residualC: residualC };
+}
+
+/* ---- verification: prove the book is right before money moves ----
+   Blocking checks must pass to end a game; each has an in-app resolution.
+   Advisory checks are reported but never trap the user, because nothing in
+   the app can resolve them. */
+function verify(st, settled) {
+  var checks = [];
+  var add = function (id, label, ok, blocking, detail) {
+    checks.push({ id: id, label: label, ok: !!ok, blocking: !!blocking, detail: detail || "" });
+  };
+
+  var missing = st.rows.filter(function (r) { return !r.done; });
+  add("counted", "Every player counted", missing.length === 0, true,
+    missing.length ? "Not counted yet: " + missing.map(function (r) { return r.name; }).join(", ") : "");
+
+  var diffC = st.totalOutC - st.totalInC;
+  add("pot", "Chips match the pot", diffC === 0, true,
+    diffC === 0 ? "" : "Counted chips are " + fmtCents(Math.abs(diffC)) +
+      (diffC > 0 ? " over" : " under") + " the " + fmtCents(st.totalInC) + " pot.");
+
+  var netSum = 0;
+  st.rows.forEach(function (r) { netSum += r.netC; });
+  add("nets", "Player nets sum to zero", netSum === 0, true,
+    netSum === 0 ? "" : "Nets are off by " + fmtCents(Math.abs(netSum)) + ".");
+
+  // every debtor pays exactly their deficit, every creditor receives exactly theirs
+  var paid = {}, recv = {}, bad = [];
+  settled.transfers.forEach(function (t) {
+    paid[t.from] = (paid[t.from] || 0) + t.amountC;
+    recv[t.to] = (recv[t.to] || 0) + t.amountC;
+  });
+  st.rows.forEach(function (r) {
+    var owed = r.netC < 0 ? -r.netC : 0, dueC = r.netC > 0 ? r.netC : 0;
+    if ((paid[r.name] || 0) !== owed || (recv[r.name] || 0) !== dueC) bad.push(r.name);
+  });
+  add("transfers", "Transfers reconcile", bad.length === 0 && settled.residualC === 0, true,
+    settled.residualC !== 0 ? fmtCents(Math.abs(settled.residualC)) + " could not be matched to anyone."
+      : bad.length ? "Does not balance for: " + bad.join(", ") : "");
+
+  var invalid = [];
+  st.rows.forEach(function (r) {
+    r.buyins.forEach(function (b) { if (!(num(b.amount) > 0)) invalid.push(r.name + " has a buy-in of " + fmtCents(cents(b.amount))); });
+    if (r.done && !(r.chips >= 0)) invalid.push(r.name + " has an invalid chip count");
+  });
+  add("amounts", "All amounts are valid", invalid.length === 0, true, invalid.join("; "));
+
+  /* ---- advisory ---- */
+  add("orphans", "No orphaned events", !st.orphans.length, false,
+    st.orphans.length ? st.orphans.length + (st.orphans.length === 1 ? " event belongs" : " events belong") +
+      " to a player this device has never seen — a sync is probably incomplete." : "");
+
+  add("removed", "No removed players held money", !st.removedWithBuyins.length, false,
+    st.removedWithBuyins.length ? st.removedWithBuyins.map(function (r) {
+      return r.name + " was removed holding " + fmtCents(r.amountC);
+    }).join("; ") + " — that left the pot." : "");
+
+  // With no database there is nothing to upload to and nothing to be out of
+  // step with, so a single-device game gets one plain note rather than two
+  // warnings it can never clear.
+  if (G.dbUrl) {
+    var pending = Object.keys(G.pending).length;
+    add("uploaded", "All changes uploaded", pending === 0, false,
+      pending ? pending + (pending === 1 ? " change still to upload. Other devices cannot see it yet."
+        : " changes still to upload. Other devices cannot see them yet.") : "");
+    add("sync", "Sync is live", G.status === "live", false,
+      G.status === "live" ? "" : "Not connected — another device may hold changes this one has not seen.");
+  } else {
+    add("sync", "This game is on one device", true, false, "");
+  }
+
+  add("players", "At least two players", st.rows.length >= 2, false,
+    st.rows.length >= 2 ? "" : "A game needs two players to settle.");
+
+  // "Nets sum to zero" and "Transfers reconcile" cannot pass while a player is
+  // uncounted or the pot is out — they are consequences, not separate faults.
+  // Show them as waiting rather than as four red failures for one root cause.
+  var by = {};
+  checks.forEach(function (c) { by[c.id] = c; });
+  if (by.counted && by.pot && (!by.counted.ok || !by.pot.ok)) {
+    ["nets", "transfers"].forEach(function (id) {
+      if (!by[id].ok) { by[id].pending = true; by[id].detail = "Waiting on the checks above."; }
+    });
+  }
+
+  return checks;
 }
 
 /* ============================================================
@@ -709,10 +975,14 @@ document.addEventListener("visibilitychange", function () {
 var $ = function (id) { return document.getElementById(id); };
 var listEl = $("list"), emptyEl = $("empty");
 
-function money(v, s) {
+/* Formats integer minor units. Every figure on screen goes through here, so
+   what the user reads is exactly what the arithmetic produced. */
+function fmtCents(c, s) {
   var st = s || (G.state && G.state.settings) || DEFAULTS;
-  var neg = v < -0.005, a = Math.abs(v);
-  var txt = (Math.round(a * 100) % 100 === 0) ? String(Math.round(a)) : a.toFixed(2);
+  c = Math.round(c || 0);
+  var neg = c < 0, a = Math.abs(c);
+  var whole = Math.floor(a / 100), frac = a % 100;
+  var txt = frac === 0 ? String(whole) : whole + "." + (frac < 10 ? "0" : "") + frac;
   return (neg ? "-" : "") + st.currency + txt;
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -724,21 +994,21 @@ function render() {
   $("gameName").textContent = s.name || DEFAULTS.name;
   document.title = (s.name || DEFAULTS.name) + (live ? "" : " · finished");
 
-  $("tIn").textContent = money(st.totalIn, s);
+  $("tIn").textContent = fmtCents(st.totalInC, s);
   $("tPl").textContent = st.rows.length;
   var outEl = $("tOut");
-  outEl.textContent = st.counted ? money(st.totalOut, s) : "—";
+  outEl.textContent = st.counted ? fmtCents(st.totalOutC, s) : "—";
   outEl.className = st.counted === 0 ? "" :
-    (st.counted === st.rows.length ? (Math.abs(st.totalOut - st.totalIn) < 0.005 ? "ok" : "bad") : "");
+    (st.counted === st.rows.length ? (st.totalOutC === st.totalInC ? "ok" : "bad") : "");
 
   emptyEl.classList.toggle("hidden", st.rows.length > 0);
   listEl.innerHTML = st.rows.map(function (r) {
-    var netCls = r.net > 0.005 ? "up" : r.net < -0.005 ? "down" : "even";
+    var netCls = r.netC > 0 ? "up" : r.netC < 0 ? "down" : "even";
     var meta = r.count + " buy-in" + (r.count === 1 ? "" : "s") +
-      '<span class="sep">·</span>' + money(r.in, s) + " in";
+      '<span class="sep">·</span>' + fmtCents(r.inC, s) + " in";
     if (r.done) {
       meta += '<span class="sep">·</span><span class="net ' + netCls + '">' +
-        (r.net > 0.005 ? "+" : "") + money(r.net, s) + "</span>";
+        (r.netC > 0 ? "+" : "") + fmtCents(r.netC, s) + "</span>";
     }
     return '<article class="card' + (r.done ? " done" : "") + '" data-id="' + r.id + '">' +
       '<div class="who">' +
@@ -753,6 +1023,8 @@ function render() {
       "</div>" +
     "</article>";
   }).join("");
+
+  if ($("dlgFinish").open) renderSettle();
 
   $("addBtn").disabled = !live;
   var fb = $("finishBtn");
@@ -793,7 +1065,7 @@ function quickBuyin(pid) {
   var amt = num(G.state.settings.buyIn);
   var e = commit("buyin", { playerId: pid, amount: amt });
   if (navigator.vibrate) navigator.vibrate(12);
-  toast(r.name + " · " + money(amt) + " buy-in", "Undo", function () {
+  toast(r.name + " · " + fmtCents(cents(amt)) + " buy-in", "Undo", function () {
     commit("void", { target: e.id });
   });
 }
@@ -814,7 +1086,7 @@ var pMode = null, pTarget = null;
 $("addBtn").onclick = function () {
   pMode = "add"; pTarget = null;
   $("pTitle").textContent = "Add player";
-  $("pSub").textContent = "They start with one " + money(G.state.settings.buyIn) + " buy-in.";
+  $("pSub").textContent = "They start with one " + fmtCents(cents(G.state.settings.buyIn)) + " buy-in.";
   $("pSave").textContent = "Add";
   $("pName").value = "";
   openDlg($("dlgPlayer"));
@@ -839,12 +1111,12 @@ function askBuyin(pid) {
   var r = rowOf(pid); if (!r) return;
   bTarget = pid;
   var base = num(G.state.settings.buyIn);
-  $("bSub").textContent = r.name + " · " + money(r.in) + " in so far";
+  $("bSub").textContent = r.name + " · " + fmtCents(r.inC) + " in so far";
   $("bAmt").value = base;
   $("bChips").innerHTML = [base / 2, base, base * 2, base * 5].filter(function (v, i, a) {
     return v > 0 && a.indexOf(v) === i;
   }).map(function (v) {
-    return '<button type="button" class="chip" data-v="' + v + '">' + esc(money(v)) + "</button>";
+    return '<button type="button" class="chip" data-v="' + v + '">' + esc(fmtCents(cents(v))) + "</button>";
   }).join("");
   openDlg($("dlgBuyin"));
 }
@@ -857,21 +1129,22 @@ $("formBuyin").addEventListener("submit", function () {
   if (amt <= 0 || !bTarget) return;
   var r = rowOf(bTarget);
   var e = commit("buyin", { playerId: bTarget, amount: amt });
-  toast((r ? r.name + " · " : "") + money(amt) + " buy-in", "Undo", function () {
+  toast((r ? r.name + " · " : "") + fmtCents(cents(amt)) + " buy-in", "Undo", function () {
     commit("void", { target: e.id });
   });
 });
 
 /* final chips */
-var cTarget = null;
-function askCash(pid) {
+var cTarget = null, backToSettle = false;
+function askCash(pid, fromSettle) {
   var r = rowOf(pid); if (!r) return;
   cTarget = pid;
+  backToSettle = !!fromSettle;
   var s = G.state.settings;
-  $("cSub").textContent = r.name + " · " + money(r.in) + " in over " + r.count + " buy-in" + (r.count === 1 ? "" : "s");
+  $("cSub").textContent = r.name + " · " + fmtCents(r.inC) + " in over " + r.count + " buy-in" + (r.count === 1 ? "" : "s");
   $("cLabel").textContent = s.chipsPerBuyIn === s.buyIn
-    ? "Chips counted (1 chip = " + money(G.state.rate) + ")"
-    : "Chips counted (" + fmtChips(s.chipsPerBuyIn) + " chips = " + money(s.buyIn) + ")";
+    ? "Chips counted (1 chip = " + fmtCents(Math.round(G.state.rate * 100)) + ")"
+    : "Chips counted (" + fmtChips(s.chipsPerBuyIn) + " chips = " + fmtCents(cents(s.buyIn)) + ")";
   $("cAmt").value = r.chips === null ? "" : r.chips;
   $("cClear").classList.toggle("hidden", r.chips === null);
   openDlg($("dlgCash"));
@@ -882,7 +1155,8 @@ $("formCash").addEventListener("submit", function () {
   var chips = num($("cAmt").value);
   var r = rowOf(cTarget);
   commit("cashout", { playerId: cTarget, chips: chips });
-  toast((r ? r.name + " " : "") + "cashed out " + money(chips * G.state.rate));
+  if (backToSettle) { backToSettle = false; renderSettle(); openDlg($("dlgFinish")); }
+  toast((r ? r.name + " " : "") + "cashed out " + fmtCents(Math.round(chips * cents(G.state.settings.buyIn) / num(G.state.settings.chipsPerBuyIn))));
 });
 $("cClear").onclick = function () {
   if (cTarget) commit("cashout_clear", { playerId: cTarget });
@@ -896,8 +1170,8 @@ function openMenu(pid) {
   mTarget = pid;
   var live = !G.state.finishedAt;
   $("mTitle").textContent = r.name;
-  $("mSub").textContent = r.count + " buy-in" + (r.count === 1 ? "" : "s") + " · " + money(r.in) + " in" +
-    (r.done ? " · " + money(r.out) + " out" : "");
+  $("mSub").textContent = r.count + " buy-in" + (r.count === 1 ? "" : "s") + " · " + fmtCents(r.inC) + " in" +
+    (r.done ? " · " + fmtCents(r.outC) + " out" : "");
   $("mUndo").disabled = r.count === 0 || !live;
   $("mBuyin").disabled = !live;
   openDlg($("dlgMenu"));
@@ -909,7 +1183,7 @@ $("mUndo").onclick = function () {
   if (!r || !r.count) return;
   var last = r.buyins[r.buyins.length - 1];
   commit("void", { target: last.id });
-  toast("Removed " + money(last.amount) + " buy-in from " + r.name);
+  toast("Removed " + fmtCents(cents(last.amount)) + " buy-in from " + r.name);
 };
 $("mRename").onclick = function () {
   var r = rowOf(mTarget); $("dlgMenu").close();
@@ -926,7 +1200,7 @@ $("mRemove").onclick = function () {
   var r = rowOf(mTarget); $("dlgMenu").close();
   if (!r) return;
   confirmDlg("Remove " + r.name + "?", r.count
-    ? "Their " + money(r.in) + " in buy-ins comes out of the pot too."
+    ? "Their " + fmtCents(r.inC) + " in buy-ins comes out of the pot too."
     : "They have no buy-ins yet.", function () {
     commit("player_remove", { playerId: r.id });
     toast(r.name + " removed");
@@ -944,44 +1218,144 @@ function confirmDlg(title, sub, fn) {
 $("kOk").onclick = function () { $("dlgConfirm").close(); var f = kFn; kFn = null; if (f) f(); };
 
 /* finish / settle */
-$("finishBtn").onclick = function () {
+$("finishBtn").onclick = function () { renderSettle(); openDlg($("dlgFinish")); };
+
+function renderSettle() {
   var st = G.state, s = st.settings;
-  var missing = st.rows.filter(function (r) { return !r.done; });
-  var diff = st.totalOut - st.totalIn;
+  var settled = settle(st.rows);
+  var checks = verify(st, settled);
+  var blocking = checks.filter(function (c) { return !c.ok && c.blocking; });
+  var failed = blocking.filter(function (c) { return !c.pending; });
 
-  $("fSub").textContent = st.rows.length + " players · " + money(st.totalIn) + " in the pot";
+  $("fSub").textContent = st.rows.length + " players · " + fmtCents(st.totalInC) + " in the pot";
 
-  var warn = "";
-  if (missing.length) {
-    warn = '<div class="note"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span>' +
-      "Still to count: <b>" + missing.map(function (r) { return esc(r.name); }).join(", ") +
-      "</b>. They're settled as if they walked with nothing.</span></div>";
-  } else if (Math.abs(diff) > 0.005) {
-    warn = '<div class="note"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span>' +
-      "Chips counted are <b>" + money(Math.abs(diff)) + (diff > 0 ? " over" : " under") +
-      "</b> the pot. Recount before paying out — the split below assumes the counts are right.</span></div>";
+  /* ---- checklist: anything wrong is shown; the rest folds into one line so
+         the eye goes to what needs attention ---- */
+  var item = function (c) {
+    var cls = c.ok ? "ok" : c.pending ? "pend" : (c.blocking ? "no" : "adv");
+    var mark = c.ok ? "✓" : c.pending ? "·" : (c.blocking ? "✕" : "!");
+    var fix = "";
+    if (!c.ok && c.id === "counted") fix = '<button class="fix" data-fix="count">Set the missing counts</button>';
+    if (!c.ok && c.id === "pot") fix = '<button class="fix" data-fix="adjust">Record the difference</button>';
+    return '<li class="' + cls + '"><span class="mk">' + mark + '</span><span class="lbl">' +
+      esc(c.label) + (c.detail ? '<span class="why">' + esc(c.detail) + "</span>" : "") + fix + "</span></li>";
+  };
+  var passed = checks.filter(function (c) { return c.ok; });
+  var issues = checks.filter(function (c) { return !c.ok; });
+  var html = issues.map(item).join("");
+  if (passed.length) {
+    html += showAllChecks ? passed.map(item).join("")
+      : '<li class="ok"><span class="mk">✓</span><span class="lbl">' +
+        '<button class="rollup" data-toggle="checks">' + passed.length +
+        (passed.length === 1 ? " check passed" : " checks passed") + " · show</button></span></li>";
+    if (showAllChecks) html += '<li class="ok"><span class="mk"> </span><span class="lbl">' +
+      '<button class="rollup" data-toggle="checks">Hide the passing checks</button></span></li>';
   }
-  $("fWarn").innerHTML = warn;
+  $("fChecks").innerHTML = html;
 
-  var sorted = st.rows.slice().sort(function (a, b) { return b.net - a.net; });
-  $("fScores").innerHTML = sorted.map(function (r) {
-    var cls = r.net > 0.005 ? "up" : r.net < -0.005 ? "down" : "even";
-    return '<div><span class="nm">' + esc(r.name) + '</span><span class="mono net ' + cls + '">' +
-      (r.net > 0.005 ? "+" : "") + money(r.net) + "</span></div>";
+  /* ---- audit: the arithmetic, laid out to be checked by hand ---- */
+  var rowsHtml = st.rows.map(function (r) {
+    var calc = r.count + " × " + fmtCents(cents(s.buyIn)) + " = " + fmtCents(r.inC) + " in";
+    if (r.count && !allSame(r.buyins)) calc = r.count + " buy-ins = " + fmtCents(r.inC) + " in";
+    calc += r.done
+      ? " · " + fmtChips(r.chips) + (Math.abs(num(r.chips)) === 1 ? " chip = " : " chips = ") + fmtCents(r.outC) + " out"
+      : " · not counted";
+    if (r.adjC) calc += " · adj " + (r.adjC > 0 ? "+" : "") + fmtCents(r.adjC);
+    var cls = r.netC > 0 ? "up" : r.netC < 0 ? "down" : "even";
+    return '<div class="r"><span class="who2"><span class="nm">' + esc(r.name) +
+      '</span><span class="calc">' + esc(calc) + '</span></span>' +
+      '<span class="amt2 net ' + cls + '">' + (r.netC > 0 ? "+" : "") + fmtCents(r.netC) + "</span></div>";
   }).join("");
 
-  var tx = settle(st.rows);
-  $("fTx").innerHTML = tx.length ? tx.map(function (t) {
+  var adj = st.adjustment;
+  if (adj && st.adjustedC) {
+    rowsHtml += '<div class="r adj"><span class="who2"><span class="nm">Discrepancy recorded</span>' +
+      '<span class="calc">' + esc(adj.reason || (adj.mode === "split" ? "split across all players" : "assigned to one player")) +
+      '</span></span><span class="amt2">' + (st.adjustedC > 0 ? "+" : "") + fmtCents(st.adjustedC) + "</span></div>";
+  }
+
+  var netSum = 0;
+  st.rows.forEach(function (r) { netSum += r.netC; });
+  rowsHtml += '<div class="r sum"><span class="who2"><span class="nm">Totals</span>' +
+    '<span class="calc">' + esc(fmtCents(st.totalInC) + " in · " + fmtCents(st.totalOutC) + " out") +
+    '</span></span><span class="amt2 ' + (netSum === 0 ? "net even" : "net down") + '">' +
+    (netSum === 0 ? "balanced" : fmtCents(netSum)) + "</span></div>";
+  $("fAudit").innerHTML = rowsHtml;
+
+  /* ---- payments ---- */
+  $("fTx").innerHTML = settled.transfers.length ? settled.transfers.map(function (t) {
     return '<li><span class="nm">' + esc(t.from) + "</span>" +
       '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' +
       '<span class="nm to">' + esc(t.to) + "</span>" +
-      '<span class="amt">' + esc(money(t.amount)) + "</span></li>";
-  }).join("") : '<li class="muted" style="justify-content:center">Everyone broke even.</li>';
+      '<span class="amt">' + esc(fmtCents(t.amountC)) + "</span></li>";
+  }).join("") : '<li class="muted" style="justify-content:center">Nobody owes anybody.</li>';
 
+  $("fWarn").innerHTML = "";
   var end = $("fEnd");
   end.textContent = st.finishedAt ? "Done" : "End game";
+  end.disabled = !st.finishedAt && blocking.length > 0;
+  $("fBlock").textContent = end.disabled
+    ? (failed.length === 1 ? "Resolve the failed check to finish." : "Resolve the " + failed.length + " failed checks to finish.")
+    : "";
+}
+
+function allSame(buyins) {
+  for (var i = 1; i < buyins.length; i++) if (cents(buyins[i].amount) !== cents(buyins[0].amount)) return false;
+  return true;
+}
+
+/* checklist actions */
+var showAllChecks = false;
+$("fChecks").addEventListener("click", function (e) {
+  var t = e.target.closest("[data-toggle]");
+  if (t) { showAllChecks = !showAllChecks; renderSettle(); return; }
+  var b = e.target.closest("[data-fix]");
+  if (!b) return;
+  if (b.dataset.fix === "count") {
+    var next = G.state.rows.filter(function (r) { return !r.done; })[0];
+    if (next) { $("dlgFinish").close(); askCash(next.id, true); }
+  } else {
+    openAdjust();
+  }
+});
+
+/* ---- adjustments ---- */
+var adjPick = "split";
+function openAdjust() {
+  var st = G.state, diffC = st.totalOutC - st.totalInC;
+  if (!diffC) return;
+  adjPick = "split";
+  $("aSub").textContent = "Chips are " + fmtCents(Math.abs(diffC)) + (diffC > 0 ? " over" : " under") +
+    " the pot. Recording it balances the book honestly.";
+  $("aWho").innerHTML = '<button type="button" class="chip on" data-who="split">Split across all ' +
+    st.rows.length + "</button>" + st.rows.map(function (r) {
+      return '<button type="button" class="chip" data-who="' + esc(r.id) + '">' + esc(r.name) + "</button>";
+    }).join("");
+  $("aReason").value = "";
+  openDlg($("dlgAdjust"));
+}
+$("aWho").addEventListener("click", function (e) {
+  var c = e.target.closest(".chip"); if (!c) return;
+  adjPick = c.dataset.who;
+  [].forEach.call($("aWho").children, function (x) { x.classList.toggle("on", x === c); });
+});
+$("formAdjust").addEventListener("submit", function () {
+  var st = G.state, diffC = st.totalOutC - st.totalInC;
+  if (!diffC) return;
+  // the adjustment cancels the gap: nets then sum to exactly zero
+  commit("adjustment", {
+    value: {
+      mode: adjPick === "split" ? "split" : "player",
+      playerId: adjPick === "split" ? null : adjPick,
+      amountC: -diffC,
+      reason: $("aReason").value.trim()
+    }
+  });
+  toast("Discrepancy of " + fmtCents(Math.abs(diffC)) + " recorded");
+  renderSettle();
   openDlg($("dlgFinish"));
-};
+});
+
 $("fEnd").onclick = function () {
   if (!G.state.finishedAt) commit("game_finish", {});
   $("dlgFinish").close();
@@ -1147,6 +1521,16 @@ function boot() {
   }
 }
 boot();
+
+/* Pure math, exposed for the test suite. Harmless in a static app, and it lets
+   the reconciliation fuzz test run thousands of games in milliseconds instead
+   of driving each one through the UI. */
+window.PSC_MATH = {
+  fold: fold, settle: settle, verify: verify,
+  cents: cents, fmtCents: fmtCents, applyAdjustment: applyAdjustment,
+  state: function () { return G.state; },
+  load: function (events) { G.events = events || {}; G.pending = {}; render(); return G.state; }
+};
 
 })();
 </script>

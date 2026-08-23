@@ -137,8 +137,24 @@ await addPlayer('A'); await addPlayer('B');
 await cashOut(1, 5); await cashOut(2, 5);   // 40 in, 10 out
 await page.click('#finishBtn');
 await page.waitForTimeout(150);
-const warn2 = await page.$eval('#fWarn', e => e.textContent.replace(/\s+/g,' ').trim());
+const checksText = () => page.$eval('#fChecks', e => e.textContent.replace(/\s+/g,' ').trim());
+let warn2 = await checksText();
 check('under-count is flagged', /€30 under/.test(warn2), warn2);
+check('End game is blocked while a check fails', await page.isDisabled('#fEnd'), 'End game still enabled');
+check('the block reason is stated', /Resolve/.test(await page.textContent('#fBlock')), await page.textContent('#fBlock'));
+
+// resolving the miscount should unblock it
+await page.click('#dlgFinish [data-close]');
+await page.waitForTimeout(120);
+await cashOut(1, 20); await cashOut(2, 20);   // 40 in, 40 out
+await page.click('#finishBtn');
+await page.waitForTimeout(200);
+check('correcting the counts clears the failure', !/under|over/.test(await checksText()), await checksText());
+check('End game is enabled once checks pass', !(await page.isDisabled('#fEnd')), 'still disabled');
+
+// the audit table must agree with the header totals
+const audit = await page.$eval('#fAudit', e => e.textContent.replace(/\s+/g,' ').trim());
+check('audit shows the totals and says balanced', /€40 in · €40 out/.test(audit) && /balanced/.test(audit), audit);
 await page.click('#dlgFinish [data-close]');
 await page.waitForTimeout(100);
 
@@ -150,8 +166,9 @@ await addPlayer('C'); await addPlayer('D');
 await cashOut(1, 40);
 await page.click('#finishBtn');
 await page.waitForTimeout(150);
-const warn3 = await page.$eval('#fWarn', e => e.textContent.replace(/\s+/g,' ').trim());
-check('uncounted player is named', warn3.includes('Still to count') && warn3.includes('D'), warn3);
+const warn3 = await page.$eval('#fChecks', e => e.textContent.replace(/\s+/g,' ').trim());
+check('uncounted player is named', warn3.includes('Not counted yet') && warn3.includes('D'), warn3);
+check('uncounted player blocks End game', await page.isDisabled('#fEnd'), 'End game still enabled');
 await page.click('#dlgFinish [data-close]');
 
 // --- 10. rename + remove -------------------------------------------------

@@ -25,6 +25,51 @@ Buy-in amount, currency, game name, and the chip-to-money ratio live in Settings
 Leave *chips per buy-in* equal to the buy-in to enter cash directly; set it to the
 number of physical chips a buy-in buys to enter chip counts instead.
 
+## Verifying the result
+
+Real money changes hands on the strength of the settle-up screen, so it proves its
+own arithmetic rather than asking to be trusted. Ending a game runs a set of checks
+and **will not close while a blocking one fails**.
+
+Blocking — each has a fix offered in the screen itself:
+
+| Check | Meaning |
+|---|---|
+| Every player counted | nobody is settled as if they walked away with nothing by accident |
+| Chips match the pot | the chips counted are worth exactly what was bought in |
+| Player nets sum to zero | every euro won is a euro lost by someone else |
+| Transfers reconcile | each debtor pays exactly their deficit, each creditor receives exactly their surplus |
+| All amounts are valid | no zero, negative, or nonsensical buy-in or chip count |
+
+Advisory — reported but never blocking, because nothing in the app can resolve them:
+orphaned events (a buy-in belonging to a player this device has not seen, which
+means a sync is incomplete), players removed while still holding buy-ins, changes
+not yet uploaded, and whether sync is live.
+
+Below the checks, an **audit table** shows the arithmetic per player — buy-ins →
+money in, chips → money out, net — with a totals row, so the whole book can be
+checked by hand.
+
+### When the chips genuinely do not match
+
+Sometimes a chip really is lost and no recount will fix it. Rather than override the
+check, record the difference: choose whether it is split across everyone or assigned
+to one player. The amount is written into the game's history and shown as its own
+line in the audit. The book then balances honestly instead of being forced shut.
+
+### Why the numbers always add up
+
+Money is held as an **integer number of cents**, never as a floating-point amount.
+Chip values often do not divide into whole cents — three chips to a €20 buy-in makes
+one chip worth €6.666… — so cash-outs are allocated by *largest remainder*: each
+player is floored, then the leftover cents go to the largest fractions. The column
+therefore sums to exactly the value of the chips on the table.
+
+This matters. An earlier version rounded each player independently and told one
+player they were owed €26.67 while instructing the table to hand them €26.66. The
+test suite now runs several thousand randomised games and asserts that the *rendered*
+figures reconcile, not merely the numbers behind them.
+
 ## Syncing across devices
 
 The game state is an **append-only log of events** — "player added", "buy-in",
@@ -96,8 +141,17 @@ npm test
 ```
 
 `tests/app.test.mjs` drives the real page in Chromium: buy-ins, undo, cash-outs,
-the settlement split, the balance warnings, rename/remove, settings, and reload
-persistence. `tests/sync.test.mjs` runs **two independent browser contexts against
-a mock Realtime Database** and checks they converge — history on join, live
-updates both ways, simultaneous buy-ins on both devices, and an offline edit that
-reaches the other device once the network returns.
+the settlement split, the verification checks blocking and unblocking the end of a
+game, rename/remove, settings, and reload persistence.
+
+`tests/sync.test.mjs` runs **two independent browser contexts against a mock
+Realtime Database** and checks they converge — history on join, live updates both
+ways, simultaneous buy-ins on both devices, an offline edit that reaches the other
+device once the network returns, and that both devices derive *identical* figures
+from the same log (rounding ties break on player id precisely so two phones never
+disagree).
+
+`tests/verify.test.mjs` is the reconciliation suite: the €26.67/€26.66 regression,
+**6000 randomised games** (4000 correctly counted, 2000 deliberately miscounted and
+closed with an adjustment) asserting that every rendered figure adds up exactly, and
+coverage of each individual check.
