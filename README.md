@@ -66,16 +66,19 @@ Without a database the app still works fully; it just stays on the one device.
 
 ## Deploying
 
-**One-time setup:** open **Settings → Pages** and set **Source** to **GitHub
-Actions**. A workflow's token is not permitted to create the Pages site itself, so
-this step can't be automated — until it's done, `.github/workflows/deploy.yml`
-fails at `configure-pages` with *"Get Pages site failed"*.
+The site is live at **https://nmcaodias.github.io/PokerSantaCruz/**.
 
-After that, every push to the default branch publishes the site. The workflow also
-runs on `main`, `master`, and `claude/**` branches. To publish without waiting for
-another push, re-run the latest run from the **Actions** tab.
+GitHub Pages serves the `gh-pages` branch, and `.github/workflows/deploy.yml`
+mirrors `main` onto it on every push. Nothing needs configuring in repo settings.
 
-The site lands at `https://<user>.github.io/<repo>/`.
+Pages was switched on by pushing a branch named `gh-pages`, which GitHub
+auto-detects on a public repository. That path was taken because the
+artifact-based deploy (`actions/deploy-pages`) requires the Pages source to be
+set to "GitHub Actions" by hand, and a workflow token is not permitted to set it
+(`Resource not accessible by integration`).
+
+Treat `gh-pages` as generated output: never commit to it directly, since each
+deploy force-updates it to match `main`.
 
 ## Running locally
 

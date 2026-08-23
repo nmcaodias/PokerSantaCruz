@@ -2,33 +2,27 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, master, "claude/**"]
+    branches: [main]
   workflow_dispatch:
 
+# Pages serves the gh-pages branch, so publishing is just mirroring the site
+# there. The artifact-based deploy (actions/deploy-pages) is deliberately not
+# used: it requires the Pages source to be set to "GitHub Actions" in repo
+# settings, and a workflow token cannot set that itself.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
-      # Needs Pages switched on once under Settings -> Pages -> Source:
-      # GitHub Actions. The workflow token is not allowed to create the Pages
-      # site itself ("Resource not accessible by integration"), so enablement
-      # here cannot replace that one-time step.
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          fetch-depth: 0   # a shallow clone cannot be pushed to another branch
+
+      - name: Mirror the site to gh-pages
+        run: git push --force origin HEAD:gh-pages
