@@ -1,0 +1,19 @@
+{
+  "name": "Poker Santa Cruz",
+  "short_name": "Poker SC",
+  "description": "Track poker buy-ins and cash-outs, and settle up at the end of the night.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

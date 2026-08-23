@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Poker Santa Cruz</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Poker SC">
+<meta name="description" content="Track poker buy-ins and cash-outs, and settle up at the end of the night.">
+<script src="config.js"></script>
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#0d1117;
+  --bg-elev:#161b22;
+  --bg-elev-2:#1c2430;
+  --line:#2b3441;
+  --line-soft:#222b36;
+  --text:#e6edf3;
+  --muted:#8b98a5;
+  --faint:#5d6b7a;
+  --accent:#2ea043;
+  --accent-hi:#3fb950;
+  --danger:#f85149;
+  --warn:#d29922;
+  --info:#58a6ff;
+  --radius:14px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font:400 16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+  overscroll-behavior-y:none;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit}
+.hidden{display:none !important}
+
+/* ---------- layout ---------- */
+.app{max-width:640px;margin:0 auto;padding:0 14px calc(112px + var(--safe-b));}
+
+/* ---------- header ---------- */
+header{
+  position:sticky;top:0;z-index:20;
+  background:linear-gradient(var(--bg) 72%,rgba(13,17,23,0));
+  padding-top:calc(10px + env(safe-area-inset-top,0px));
+  padding-bottom:12px;
+}
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.title{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px}
+.title h1{
+  margin:0;font-size:19px;font-weight:650;letter-spacing:-.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.icon-btn{
+  width:38px;height:38px;flex:none;border-radius:11px;
+  display:grid;place-items:center;
+  background:var(--bg-elev);border:1px solid var(--line-soft);
+  transition:background .12s;
+}
+.icon-btn:active{background:var(--bg-elev-2)}
+.icon-btn svg{width:19px;height:19px;stroke:var(--muted);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+.sync-dot{
+  display:inline-flex;align-items:center;gap:5px;flex:none;
+  font-size:11px;color:var(--faint);
+  background:var(--bg-elev);border:1px solid var(--line-soft);
+  padding:5px 9px;border-radius:999px;
+}
+.sync-dot i{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none}
+.sync-dot[data-s="live"] i{background:var(--accent-hi);box-shadow:0 0 0 3px rgba(63,185,80,.16)}
+.sync-dot[data-s="live"]{color:var(--accent-hi)}
+.sync-dot[data-s="connecting"] i{background:var(--warn);animation:pulse 1.2s infinite}
+.sync-dot[data-s="error"] i{background:var(--danger)}
+.sync-dot[data-s="error"]{color:var(--danger)}
+@keyframes pulse{50%{opacity:.3}}
+
+/* ---------- totals strip ---------- */
+.totals{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  background:var(--bg-elev);border:1px solid var(--line-soft);
+  border-radius:var(--radius);overflow:hidden;
+}
+.totals div{padding:9px 8px;text-align:center;border-right:1px solid var(--line-soft)}
+.totals div:last-child{border-right:0}
+.totals dt{margin:0;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+.totals dd{margin:2px 0 0;font-size:17px;font-weight:640;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.totals dd.ok{color:var(--accent-hi)}
+.totals dd.bad{color:var(--warn)}
+
+/* ---------- player cards ---------- */
+.list{display:flex;flex-direction:column;gap:9px;margin-top:4px}
+.card{
+  background:var(--bg-elev);border:1px solid var(--line-soft);
+  border-radius:var(--radius);padding:11px 12px;
+  display:flex;align-items:center;gap:11px;
+}
+.card.done{border-color:rgba(46,160,67,.34);background:linear-gradient(180deg,rgba(46,160,67,.055),transparent) var(--bg-elev)}
+.who{flex:1;min-width:0}
+.who button{
+  display:block;width:100%;text-align:left;padding:2px 0;
+  font-size:16.5px;font-weight:600;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.meta{margin-top:2px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.meta .sep{color:var(--faint);margin:0 5px}
+.meta .out{color:var(--text)}
+.net{font-weight:640}
+.net.up{color:var(--accent-hi)}
+.net.down{color:var(--danger)}
+.net.even{color:var(--muted)}
+
+.acts{display:flex;align-items:center;gap:8px;flex:none}
+.plus{
+  width:46px;height:46px;border-radius:50%;
+  background:rgba(46,160,67,.14);border:1px solid rgba(46,160,67,.4);
+  display:grid;place-items:center;
+  transition:transform .1s,background .12s;
+}
+.plus:active{transform:scale(.9);background:rgba(46,160,67,.28)}
+.plus svg{width:23px;height:23px;stroke:var(--accent-hi);stroke-width:2.4;stroke-linecap:round;fill:none}
+.plus[disabled]{opacity:.32;pointer-events:none}
+.fin{
+  min-width:62px;height:46px;padding:0 12px;border-radius:12px;
+  background:var(--bg-elev-2);border:1px solid var(--line);
+  font-size:13.5px;font-weight:600;color:var(--muted);
+  display:grid;place-items:center;transition:transform .1s;
+}
+.fin:active{transform:scale(.95)}
+.fin.set{
+  background:rgba(46,160,67,.14);border-color:rgba(46,160,67,.4);
+  color:var(--accent-hi);font-variant-numeric:tabular-nums;
+}
+
+/* ---------- empty ---------- */
+.empty{text-align:center;padding:48px 20px;color:var(--faint)}
+.empty svg{width:46px;height:46px;stroke:var(--line);stroke-width:1.4;fill:none;margin-bottom:12px}
+.empty p{margin:0;font-size:14.5px}
+
+/* ---------- bottom bar ---------- */
+.dock{
+  position:fixed;left:0;right:0;bottom:0;z-index:20;
+  padding:12px 14px calc(12px + var(--safe-b));
+  background:linear-gradient(rgba(13,17,23,0),var(--bg) 34%);
+  display:flex;gap:10px;max-width:640px;margin:0 auto;
+}
+.btn{
+  flex:1;height:50px;border-radius:13px;
+  font-size:15.5px;font-weight:640;letter-spacing:-.01em;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  border:1px solid var(--line);background:var(--bg-elev-2);
+  transition:transform .1s,opacity .12s;
+}
+.btn:active{transform:scale(.98)}
+.btn svg{width:18px;height:18px;stroke:currentColor;stroke-width:2.1;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{color:var(--muted)}
+.btn[disabled]{opacity:.4;pointer-events:none}
+
+/* ---------- dialogs ---------- */
+dialog{
+  border:0;padding:0;background:transparent;color:var(--text);
+  max-width:min(440px,calc(100vw - 28px));width:100%;
+  margin:auto auto max(14px,var(--safe-b)) auto;
+}
+dialog::backdrop{background:rgba(1,4,9,.72);backdrop-filter:blur(2px)}
+.sheet{
+  background:var(--bg-elev);border:1px solid var(--line);
+  border-radius:18px;padding:18px;
+  box-shadow:0 24px 60px rgba(0,0,0,.6);
+  animation:rise .18s ease-out;
+  max-height:min(84vh,720px);overflow-y:auto;overscroll-behavior:contain;
+}
+@keyframes rise{from{transform:translateY(14px);opacity:0}}
+@media (min-width:520px){ dialog{margin:auto} }
+.sheet h2{margin:0 0 3px;font-size:18px;font-weight:650;letter-spacing:-.02em}
+.sheet .sub{margin:0 0 15px;font-size:13.5px;color:var(--muted)}
+label.f{display:block;margin-bottom:13px}
+label.f span{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+input[type=text],input[type=number],input[type=url]{
+  width:100%;height:48px;padding:0 13px;
+  background:var(--bg);border:1px solid var(--line);border-radius:11px;
+  color:var(--text);font-size:16px;outline:none;
+}
+input:focus{border-color:var(--info)}
+.row{display:flex;gap:9px}
+.row>*{flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:-4px 0 13px}
+.chip{
+  padding:8px 13px;border-radius:999px;font-size:14px;font-weight:600;
+  background:var(--bg-elev-2);border:1px solid var(--line);color:var(--muted);
+  font-variant-numeric:tabular-nums;
+}
+.chip:active{background:var(--line)}
+.acts-row{display:flex;gap:9px;margin-top:16px}
+.acts-row .btn{height:47px}
+.link{color:var(--info);font-size:13.5px;font-weight:560;padding:6px 0}
+.link.danger{color:var(--danger)}
+
+/* menu list */
+.menu{display:flex;flex-direction:column;gap:2px;margin:0 -6px}
+.menu button{
+  display:flex;align-items:center;gap:11px;
+  padding:13px 12px;border-radius:11px;font-size:15.5px;text-align:left;
+}
+.menu button:active{background:var(--bg-elev-2)}
+.menu button svg{width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.menu button.danger{color:var(--danger)}
+.menu button.danger svg{stroke:var(--danger)}
+.menu button[disabled]{opacity:.36;pointer-events:none}
+
+/* settlement */
+.tx{display:flex;flex-direction:column;gap:8px;margin:4px 0 0}
+.tx li{
+  display:flex;align-items:center;gap:9px;
+  background:var(--bg);border:1px solid var(--line-soft);
+  border-radius:12px;padding:11px 13px;font-size:15px;
+}
+.tx .nm{font-weight:620;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.tx .nm.to{text-align:right}
+.tx svg{width:17px;height:17px;stroke:var(--faint);fill:none;stroke-width:2;flex:none;stroke-linecap:round;stroke-linejoin:round}
+.tx .amt{font-weight:650;font-variant-numeric:tabular-nums;color:var(--accent-hi);flex:none}
+.scores{margin:0 0 14px;border:1px solid var(--line-soft);border-radius:12px;overflow:hidden}
+.scores div{
+  display:flex;justify-content:space-between;gap:10px;
+  padding:9px 13px;font-size:14.5px;border-bottom:1px solid var(--line-soft);
+  background:var(--bg);
+}
+.scores div:last-child{border-bottom:0}
+.scores .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.note{
+  display:flex;gap:9px;padding:11px 13px;border-radius:12px;font-size:13.5px;line-height:1.4;
+  background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.32);color:#e3b341;
+  margin-bottom:14px;
+}
+.note svg{width:17px;height:17px;flex:none;margin-top:1px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.note.info{background:rgba(88,166,255,.09);border-color:rgba(88,166,255,.3);color:#79c0ff}
+
+/* toast */
+.toast{
+  position:fixed;left:50%;transform:translate(-50%,20px);
+  bottom:calc(78px + var(--safe-b));z-index:60;
+  display:flex;align-items:center;gap:12px;
+  background:#f0f6fc;color:#0d1117;
+  padding:11px 12px 11px 16px;border-radius:13px;
+  font-size:14.5px;font-weight:560;
+  box-shadow:0 12px 34px rgba(0,0,0,.5);
+  opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;
+  max-width:calc(100vw - 28px);
+}
+.toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.toast button{
+  font-weight:700;color:#0969da;padding:4px 8px;margin:-4px -4px -4px 0;
+  border-radius:8px;flex:none;
+}
+.muted{color:var(--muted)}
+.mono{font-variant-numeric:tabular-nums}
+code.code{
+  display:block;background:var(--bg);border:1px solid var(--line);
+  border-radius:10px;padding:11px 12px;font-size:12.5px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:var(--muted);word-break:break-all;line-height:1.5;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="bar">
+      <div class="title"><h1 id="gameName">Poker Santa Cruz</h1></div>
+      <button class="sync-dot" id="syncBtn" data-s="off" title="Sync status"><i></i><span id="syncTxt">Local</span></button>
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+    <dl class="totals">
+      <div><dt>In play</dt><dd id="tIn">—</dd></div>
+      <div><dt>Counted</dt><dd id="tOut">—</dd></div>
+      <div><dt>Players</dt><dd id="tPl">0</dd></div>
+    </dl>
+  </header>
+
+  <main id="list" class="list"></main>
+
+  <div id="empty" class="empty hidden">
+    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <p>No players yet.<br>Add everyone at the table to start.</p>
+  </div>
+</div>
+
+<div class="dock">
+  <button class="btn primary" id="addBtn">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Add player
+  </button>
+  <button class="btn ghost" id="finishBtn">
+    <svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/></svg> Finish game
+  </button>
+</div>
+
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="toastAct" class="hidden"></button></div>
+
+<!-- ============ dialogs ============ -->
+<dialog id="dlgPlayer"><form method="dialog" class="sheet" id="formPlayer">
+  <h2 id="pTitle">Add player</h2>
+  <p class="sub" id="pSub">They'll start with one buy-in.</p>
+  <label class="f"><span>Name</span><input type="text" id="pName" autocomplete="off" autocapitalize="words" maxlength="24" required></label>
+  <div class="acts-row">
+    <button type="button" class="btn ghost" data-close>Cancel</button>
+    <button type="submit" class="btn primary" id="pSave">Add</button>
+  </div>
+</form></dialog>
+
+<dialog id="dlgBuyin"><form method="dialog" class="sheet" id="formBuyin">
+  <h2>Buy-in</h2>
+  <p class="sub" id="bSub"></p>
+  <div class="chips" id="bChips"></div>
+  <label class="f"><span>Amount</span><input type="number" id="bAmt" inputmode="decimal" step="any" min="0" required></label>
+  <div class="acts-row">
+    <button type="button" class="btn ghost" data-close>Cancel</button>
+    <button type="submit" class="btn primary">Add buy-in</button>
+  </div>
+</form></dialog>
+
+<dialog id="dlgCash"><form method="dialog" class="sheet" id="formCash">
+  <h2>Final chips</h2>
+  <p class="sub" id="cSub"></p>
+  <label class="f"><span id="cLabel">Chips counted</span><input type="number" id="cAmt" inputmode="decimal" step="any" min="0" required></label>
+  <div class="acts-row">
+    <button type="button" class="btn ghost" id="cClear">Clear</button>
+    <button type="submit" class="btn primary">Save</button>
+  </div>
+</form></dialog>
+
+<dialog id="dlgMenu"><div class="sheet">
+  <h2 id="mTitle">Player</h2>
+  <p class="sub" id="mSub"></p>
+  <div class="menu">
+    <button id="mBuyin"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Add custom buy-in</button>
+    <button id="mUndo"><svg viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg> Undo last buy-in</button>
+    <button id="mCash"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg> Set final chips</button>
+    <button id="mRename"><svg viewBox="0 0 24 24"><path d="M11 4H4v16h16v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> Rename</button>
+    <button id="mRemove" class="danger"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg> Remove player</button>
+  </div>
+  <div class="acts-row"><button type="button" class="btn ghost" data-close>Close</button></div>
+</div></dialog>
+
+<dialog id="dlgFinish"><div class="sheet">
+  <h2>Settle up</h2>
+  <p class="sub" id="fSub"></p>
+  <div id="fWarn"></div>
+  <div class="scores" id="fScores"></div>
+  <ul class="tx" id="fTx" style="list-style:none;padding:0"></ul>
+  <div class="acts-row">
+    <button type="button" class="btn ghost" data-close>Back</button>
+    <button type="button" class="btn primary" id="fEnd">End game</button>
+  </div>
+</div></dialog>
+
+<dialog id="dlgSettings"><div class="sheet">
+  <h2>Settings</h2>
+  <p class="sub">Applies to everyone in this game.</p>
+  <label class="f"><span>Game name</span><input type="text" id="sName" maxlength="40"></label>
+  <div class="row">
+    <label class="f"><span>Buy-in</span><input type="number" id="sBuyin" inputmode="decimal" step="any" min="0"></label>
+    <label class="f"><span>Currency</span><input type="text" id="sCur" maxlength="3"></label>
+  </div>
+  <label class="f"><span>Chips per buy-in</span><input type="number" id="sChips" inputmode="decimal" step="any" min="0"></label>
+  <p class="sub" id="sRate" style="margin-top:-8px"></p>
+
+  <h2 style="margin-top:22px">Sync across devices</h2>
+  <p class="sub">Everyone who opens the share link sees the same game, live.</p>
+  <label class="f"><span>Realtime Database URL</span><input type="url" id="sDb" placeholder="https://your-app.firebaseio.com" autocomplete="off" spellcheck="false"></label>
+  <label class="f"><span>Game code</span><input type="text" id="sCode" autocomplete="off" spellcheck="false"></label>
+  <div class="menu">
+    <button id="sShare"><svg viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v14"/></svg> Copy share link</button>
+    <button id="sNew"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Start a new game</button>
+    <button id="sHelp"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg> How do I get a database URL?</button>
+    <button id="sReopen" class="hidden"><svg viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg> Reopen finished game</button>
+  </div>
+  <div class="acts-row"><button type="button" class="btn primary" id="sSave">Done</button></div>
+</div></dialog>
+
+<dialog id="dlgHelp"><div class="sheet">
+  <h2>Enable cross-device sync</h2>
+  <p class="sub">One free Firebase project, about two minutes. Without it the game still works, but only on this device.</p>
+  <ol class="muted" style="font-size:14px;line-height:1.65;padding-left:20px;margin:0 0 14px">
+    <li>Go to <b>console.firebase.google.com</b> and create a project.</li>
+    <li>Open <b>Build → Realtime Database</b> and create one.</li>
+    <li>Copy its URL (ends in <b>.firebaseio.com</b> or <b>.firebasedatabase.app</b>) into Settings.</li>
+    <li>Under <b>Rules</b>, paste this and publish:</li>
+  </ol>
+  <code class="code">{ "rules": { "games": { "$code": { ".read": true, ".write": true } } } }</code>
+  <div class="note info" style="margin-top:14px">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    <span>These rules let anyone who knows a game code read and write that game. Codes are random and unguessable, and nothing personal is stored — fine for a home game, not for anything sensitive.</span>
+  </div>
+  <div class="acts-row"><button type="button" class="btn primary" data-close>Got it</button></div>
+</div></dialog>
+
+<dialog id="dlgConfirm"><div class="sheet">
+  <h2 id="kTitle">Are you sure?</h2>
+  <p class="sub" id="kSub"></p>
+  <div class="acts-row">
+    <button type="button" class="btn ghost" data-close>Cancel</button>
+    <button type="button" class="btn primary" id="kOk">Confirm</button>
+  </div>
+</div></dialog>
+
+<script>
+"use strict";
+(function () {
+
+/* ============================================================
+   Model
+   The game is an append-only log of events keyed by a random id.
+   Merging two devices is a union of their logs, so simultaneous
+   edits can never clobber each other. Current state is a fold.
+   ============================================================ */
+
+var CFG = window.PSC_CONFIG || {};
+var LS = {
+  dev: "psc.device",
+  db: "psc.db",
+  code: "psc.code",
+  log: function (c) { return "psc.log." + c; }
+};
+var DEFAULTS = { name: "Poker Santa Cruz", buyIn: 20, currency: "€", chipsPerBuyIn: 20 };
+
+var deviceId = store(LS.dev) || (function () { var d = rid(6); store(LS.dev, d); return d; })();
+
+var G = {
+  code: null,
+  dbUrl: null,
+  events: {},     // id -> event
+  pending: {},    // id -> event awaiting upload
+  status: "off",  // off | connecting | live | error
+  state: null
+};
+
+function rid(n) {
+  var s = "", a = "0123456789abcdefghijkmnpqrstuvwxyz";
+  var buf = new Uint8Array(n);
+  (window.crypto || {}).getRandomValues ? crypto.getRandomValues(buf) : buf.forEach(function (_, i) { buf[i] = Math.random() * 256; });
+  for (var i = 0; i < n; i++) s += a[buf[i] % a.length];
+  return s;
+}
+function store(k, v) {
+  try {
+    if (arguments.length > 1) { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); return v; }
+    return localStorage.getItem(k);
+  } catch (e) { return null; }
+}
+
+/* ---- events ---- */
+function mkEvent(type, data) {
+  var e = data || {};
+  e.type = type;
+  e.ts = Date.now();
+  e.dev = deviceId;
+  e.id = e.ts.toString(36) + "-" + rid(5);
+  return e;
+}
+function commit(type, data) {
+  var e = mkEvent(type, data);
+  G.events[e.id] = e;
+  G.pending[e.id] = e;
+  persist();
+  render();
+  push();
+  return e;
+}
+function persist() {
+  if (!G.code) return;
+  try { store(LS.log(G.code), JSON.stringify({ events: G.events, pending: Object.keys(G.pending) })); }
+  catch (err) { /* quota — the in-memory log still works this session */ }
+}
+function load(code) {
+  var raw = store(LS.log(code));
+  G.events = {}; G.pending = {};
+  if (!raw) return;
+  try {
+    var o = JSON.parse(raw);
+    G.events = o.events || {};
+    (o.pending || []).forEach(function (id) { if (G.events[id]) G.pending[id] = G.events[id]; });
+  } catch (err) { /* corrupt entry — start this game empty rather than crash */ }
+}
+
+/* ---- fold: log -> current state ---- */
+function fold() {
+  var list = [], id;
+  for (id in G.events) if (G.events[id] && G.events[id].type) list.push(G.events[id]);
+  list.sort(function (a, b) { return (a.ts - b.ts) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); });
+
+  var voided = {};
+  list.forEach(function (e) { if (e.type === "void" && e.target) voided[e.target] = 1; });
+
+  var settings = { name: DEFAULTS.name, buyIn: DEFAULTS.buyIn, currency: DEFAULTS.currency, chipsPerBuyIn: DEFAULTS.chipsPerBuyIn };
+  var players = {}, order = [], finishedAt = 0;
+
+  // Pass 1 creates every player first. Timestamps can't be trusted to order
+  // a player ahead of their own buy-ins: two commits land in the same
+  // millisecond and tie-break on a random id, and clocks differ between
+  // devices. Anything that folds in one pass silently drops those buy-ins.
+  list.forEach(function (e) {
+    if (e.type !== "player_add" || voided[e.id] || players[e.playerId]) return;
+    players[e.playerId] = { id: e.playerId, name: e.name, at: e.ts, buyins: [], chips: null, chipsAt: 0, gone: false };
+    order.push(e.playerId);
+  });
+
+  list.forEach(function (e) {
+    if (e.type === "void" || e.type === "player_add" || voided[e.id]) return;
+    var p = players[e.playerId];
+    switch (e.type) {
+      case "settings":
+        if (e.value) for (var k in e.value) if (e.value[k] !== undefined && e.value[k] !== null) settings[k] = e.value[k];
+        break;
+      case "player_rename": if (p) p.name = e.name; break;
+      case "player_remove": if (p) p.gone = true; break;
+      case "buyin": if (p) p.buyins.push({ id: e.id, amount: num(e.amount), ts: e.ts }); break;
+      case "cashout":
+        if (p && e.ts >= p.chipsAt) { p.chips = num(e.chips); p.chipsAt = e.ts; }
+        break;
+      case "cashout_clear":
+        if (p && e.ts >= p.chipsAt) { p.chips = null; p.chipsAt = e.ts; }
+        break;
+      case "game_finish": finishedAt = Math.max(finishedAt, e.ts); break;
+      case "game_reopen": if (e.ts >= finishedAt) finishedAt = 0; break;
+    }
+  });
+
+  var rate = settings.chipsPerBuyIn > 0 ? (num(settings.buyIn) / num(settings.chipsPerBuyIn)) : 1;
+  var rows = [], totalIn = 0, totalOut = 0, counted = 0;
+
+  order.forEach(function (pid) {
+    var p = players[pid];
+    if (!p || p.gone) return;
+    var inAmt = 0;
+    p.buyins.forEach(function (b) { inAmt += b.amount; });
+    var hasChips = p.chips !== null && p.chips !== undefined;
+    var outAmt = hasChips ? p.chips * rate : 0;
+    totalIn += inAmt;
+    if (hasChips) { totalOut += outAmt; counted++; }
+    rows.push({
+      id: p.id, name: p.name, at: p.at,
+      buyins: p.buyins, count: p.buyins.length, in: inAmt,
+      chips: hasChips ? p.chips : null, out: outAmt,
+      net: hasChips ? outAmt - inAmt : 0, done: hasChips
+    });
+  });
+
+  return { settings: settings, rate: rate, rows: rows, totalIn: totalIn, totalOut: totalOut, counted: counted, finishedAt: finishedAt };
+}
+function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
+
+/* ---- settlement: fewest transfers that clear every balance ---- */
+function settle(rows) {
+  var EPS = 0.005, tx = [];
+  var owe = [], due = [];
+  rows.forEach(function (r) {
+    if (r.net < -EPS) owe.push({ name: r.name, rem: -r.net });
+    else if (r.net > EPS) due.push({ name: r.name, rem: r.net });
+  });
+  owe.sort(function (a, b) { return b.rem - a.rem; });
+  due.sort(function (a, b) { return b.rem - a.rem; });
+  var i = 0, j = 0, guard = 0;
+  while (i < owe.length && j < due.length && guard++ < 999) {
+    var amt = Math.min(owe[i].rem, due[j].rem);
+    if (amt > EPS) tx.push({ from: owe[i].name, to: due[j].name, amount: amt });
+    owe[i].rem -= amt; due[j].rem -= amt;
+    if (owe[i].rem <= EPS) i++;
+    if (due[j].rem <= EPS) j++;
+  }
+  return tx;
+}
+
+/* ============================================================
+   Sync — Firebase Realtime Database over plain REST.
+   Reads stream live via EventSource; writes PATCH single events,
+   which merges keys server-side and never overwrites the log.
+   ============================================================ */
+
+var stream = null, retryAt = 1000, retryTimer = null, pollTimer = null;
+
+function dbBase() {
+  if (!G.dbUrl || !G.code) return null;
+  return G.dbUrl.replace(/\/+$/, "") + "/games/" + encodeURIComponent(G.code) + "/events";
+}
+function setStatus(s) { G.status = s; paintStatus(); }
+
+function connect() {
+  disconnect();
+  if (!dbBase()) { setStatus("off"); return; }
+  setStatus("connecting");
+  try {
+    stream = new EventSource(dbBase() + ".json");
+  } catch (err) { startPolling(); return; }
+
+  stream.addEventListener("put", function (m) { onStream(m, false); });
+  stream.addEventListener("patch", function (m) { onStream(m, true); });
+  stream.addEventListener("auth_revoked", function () { setStatus("error"); });
+  stream.onopen = function () {
+    retryAt = 1000;
+    // the stream is authoritative again; stop the fallback poll it started
+    clearInterval(pollTimer); pollTimer = null;
+    setStatus("live");
+    flush();
+  };
+  stream.onerror = function () {
+    // EventSource retries on its own; surface it and fall back to polling.
+    if (G.status === "live") setStatus("connecting");
+    else setStatus("error");
+    startPolling();
+  };
+}
+function disconnect() {
+  if (stream) { try { stream.close(); } catch (e) {} stream = null; }
+  clearTimeout(retryTimer); clearInterval(pollTimer); pollTimer = null;
+}
+function onStream(msg, isPatch) {
+  var d;
+  try { d = JSON.parse(msg.data); } catch (e) { return; }
+  if (!d) return;
+  setStatus("live");
+  var path = d.path || "/", data = d.data;
+  var seg = path.split("/").filter(Boolean);
+
+  if (seg.length === 0) {
+    if (data === null) { if (!isPatch) { /* log cleared remotely; keep ours */ } return; }
+    absorb(data);
+  } else if (seg.length === 1) {
+    if (data === null) return;            // remote delete: the log is append-only, ignore
+    var one = {}; one[seg[0]] = data; absorb(one);
+  } else {
+    var ev = G.events[seg[0]];
+    if (ev) { ev[seg[1]] = data; persist(); render(); }
+  }
+}
+function absorb(map) {
+  var added = 0;
+  for (var id in map) {
+    var e = map[id];
+    if (!e || typeof e !== "object" || !e.type) continue;
+    if (!G.events[id]) { e.id = id; G.events[id] = e; added++; }
+  }
+  if (added) { persist(); render(); }
+}
+function startPolling() {
+  if (pollTimer || !dbBase()) return;
+  pollTimer = setInterval(pull, 5000);
+  pull();
+}
+function pull() {
+  var u = dbBase();
+  if (!u) return;
+  fetch(u + ".json", { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (d) { setStatus("live"); if (d) absorb(d); flush(); })
+    .catch(function () { setStatus("error"); });
+}
+function push() {
+  if (!dbBase()) return;
+  flush();
+}
+function flush() {
+  var u = dbBase();
+  if (!u) return;
+  var body = {}, ids = [], n = 0;
+  for (var id in G.pending) { body[id] = G.pending[id]; ids.push(id); if (++n >= 200) break; }
+  if (!n) return;
+  fetch(u + ".json", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  }).then(function (r) {
+    if (!r.ok) throw r.status;
+    ids.forEach(function (i) { delete G.pending[i]; });
+    persist();
+    retryAt = 1000;
+    if (G.status !== "live") setStatus("live");
+    paintStatus();
+    // a long backlog is uploaded in batches; keep going until it's clear
+    for (var rest in G.pending) { flush(); break; }
+  }).catch(function () {
+    setStatus("error");
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(flush, retryAt = Math.min(retryAt * 2, 30000));
+  });
+}
+
+window.addEventListener("online", function () { if (dbBase()) { connect(); flush(); } });
+document.addEventListener("visibilitychange", function () {
+  if (!document.hidden && dbBase()) { if (!stream || stream.readyState === 2) connect(); flush(); }
+});
+
+/* ============================================================
+   View
+   ============================================================ */
+
+var $ = function (id) { return document.getElementById(id); };
+var listEl = $("list"), emptyEl = $("empty");
+
+function money(v, s) {
+  var st = s || (G.state && G.state.settings) || DEFAULTS;
+  var neg = v < -0.005, a = Math.abs(v);
+  var txt = (Math.round(a * 100) % 100 === 0) ? String(Math.round(a)) : a.toFixed(2);
+  return (neg ? "-" : "") + st.currency + txt;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+function render() {
+  var st = G.state = fold();
+  var s = st.settings, live = !st.finishedAt;
+
+  $("gameName").textContent = s.name || DEFAULTS.name;
+  document.title = (s.name || DEFAULTS.name) + (live ? "" : " · finished");
+
+  $("tIn").textContent = money(st.totalIn, s);
+  $("tPl").textContent = st.rows.length;
+  var outEl = $("tOut");
+  outEl.textContent = st.counted ? money(st.totalOut, s) : "—";
+  outEl.className = st.counted === 0 ? "" :
+    (st.counted === st.rows.length ? (Math.abs(st.totalOut - st.totalIn) < 0.005 ? "ok" : "bad") : "");
+
+  emptyEl.classList.toggle("hidden", st.rows.length > 0);
+  listEl.innerHTML = st.rows.map(function (r) {
+    var netCls = r.net > 0.005 ? "up" : r.net < -0.005 ? "down" : "even";
+    var meta = r.count + " buy-in" + (r.count === 1 ? "" : "s") +
+      '<span class="sep">·</span>' + money(r.in, s) + " in";
+    if (r.done) {
+      meta += '<span class="sep">·</span><span class="net ' + netCls + '">' +
+        (r.net > 0.005 ? "+" : "") + money(r.net, s) + "</span>";
+    }
+    return '<article class="card' + (r.done ? " done" : "") + '" data-id="' + r.id + '">' +
+      '<div class="who">' +
+        '<button data-act="menu" data-id="' + r.id + '">' + esc(r.name) + "</button>" +
+        '<div class="meta">' + meta + "</div>" +
+      "</div>" +
+      '<div class="acts">' +
+        '<button class="plus" data-act="buyin" data-id="' + r.id + '" aria-label="Add buy-in for ' + esc(r.name) + '"' + (live ? "" : " disabled") + '>' +
+          '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>' +
+        '<button class="fin' + (r.done ? " set" : "") + '" data-act="cash" data-id="' + r.id + '">' +
+          (r.done ? fmtChips(r.chips) : "Finish") + "</button>" +
+      "</div>" +
+    "</article>";
+  }).join("");
+
+  $("addBtn").disabled = !live;
+  var fb = $("finishBtn");
+  fb.disabled = st.rows.length === 0;
+  fb.lastChild.textContent = live ? " Finish game" : " Results";
+  paintStatus();
+}
+function fmtChips(c) {
+  return (Math.round(c * 100) % 100 === 0) ? String(Math.round(c)) : String(Math.round(c * 100) / 100);
+}
+function paintStatus() {
+  var b = $("syncBtn"), t = $("syncTxt");
+  var pend = Object.keys(G.pending).length;
+  b.dataset.s = G.status;
+  t.textContent = G.status === "live" ? (pend ? "Saving" : "Live")
+    : G.status === "connecting" ? "Syncing"
+    : G.status === "error" ? "Offline" : "Local";
+}
+
+/* ---- taps ---- */
+listEl.addEventListener("click", function (e) {
+  var b = e.target.closest("button[data-act]");
+  if (!b) return;
+  var id = b.dataset.id;
+  if (b.dataset.act === "buyin") quickBuyin(id);
+  else if (b.dataset.act === "cash") askCash(id);
+  else openMenu(id);
+});
+
+function rowOf(id) {
+  var rows = (G.state || fold()).rows;
+  for (var i = 0; i < rows.length; i++) if (rows[i].id === id) return rows[i];
+  return null;
+}
+
+function quickBuyin(pid) {
+  var r = rowOf(pid); if (!r) return;
+  var amt = num(G.state.settings.buyIn);
+  var e = commit("buyin", { playerId: pid, amount: amt });
+  if (navigator.vibrate) navigator.vibrate(12);
+  toast(r.name + " · " + money(amt) + " buy-in", "Undo", function () {
+    commit("void", { target: e.id });
+  });
+}
+
+/* ---- dialogs ---- */
+function openDlg(d) { if (!d.open) d.showModal(); }
+document.addEventListener("click", function (e) {
+  var c = e.target.closest("[data-close]");
+  if (c) { var d = c.closest("dialog"); if (d) d.close(); }
+});
+// tap outside the sheet closes
+document.querySelectorAll("dialog").forEach(function (d) {
+  d.addEventListener("click", function (e) { if (e.target === d) d.close(); });
+});
+
+/* add / rename player */
+var pMode = null, pTarget = null;
+$("addBtn").onclick = function () {
+  pMode = "add"; pTarget = null;
+  $("pTitle").textContent = "Add player";
+  $("pSub").textContent = "They start with one " + money(G.state.settings.buyIn) + " buy-in.";
+  $("pSave").textContent = "Add";
+  $("pName").value = "";
+  openDlg($("dlgPlayer"));
+  setTimeout(function () { $("pName").focus(); }, 60);
+};
+$("formPlayer").addEventListener("submit", function () {
+  var name = $("pName").value.trim();
+  if (!name) return;
+  if (pMode === "add") {
+    var pid = rid(8);
+    commit("player_add", { playerId: pid, name: name });
+    commit("buyin", { playerId: pid, amount: num(G.state.settings.buyIn) });
+    toast(name + " added");
+  } else {
+    commit("player_rename", { playerId: pTarget, name: name });
+  }
+});
+
+/* buy-in (custom) */
+var bTarget = null;
+function askBuyin(pid) {
+  var r = rowOf(pid); if (!r) return;
+  bTarget = pid;
+  var base = num(G.state.settings.buyIn);
+  $("bSub").textContent = r.name + " · " + money(r.in) + " in so far";
+  $("bAmt").value = base;
+  $("bChips").innerHTML = [base / 2, base, base * 2, base * 5].filter(function (v, i, a) {
+    return v > 0 && a.indexOf(v) === i;
+  }).map(function (v) {
+    return '<button type="button" class="chip" data-v="' + v + '">' + esc(money(v)) + "</button>";
+  }).join("");
+  openDlg($("dlgBuyin"));
+}
+$("bChips").addEventListener("click", function (e) {
+  var c = e.target.closest(".chip"); if (!c) return;
+  $("bAmt").value = c.dataset.v;
+});
+$("formBuyin").addEventListener("submit", function () {
+  var amt = num($("bAmt").value);
+  if (amt <= 0 || !bTarget) return;
+  var r = rowOf(bTarget);
+  var e = commit("buyin", { playerId: bTarget, amount: amt });
+  toast((r ? r.name + " · " : "") + money(amt) + " buy-in", "Undo", function () {
+    commit("void", { target: e.id });
+  });
+});
+
+/* final chips */
+var cTarget = null;
+function askCash(pid) {
+  var r = rowOf(pid); if (!r) return;
+  cTarget = pid;
+  var s = G.state.settings;
+  $("cSub").textContent = r.name + " · " + money(r.in) + " in over " + r.count + " buy-in" + (r.count === 1 ? "" : "s");
+  $("cLabel").textContent = s.chipsPerBuyIn === s.buyIn
+    ? "Chips counted (1 chip = " + money(G.state.rate) + ")"
+    : "Chips counted (" + fmtChips(s.chipsPerBuyIn) + " chips = " + money(s.buyIn) + ")";
+  $("cAmt").value = r.chips === null ? "" : r.chips;
+  $("cClear").classList.toggle("hidden", r.chips === null);
+  openDlg($("dlgCash"));
+  setTimeout(function () { $("cAmt").focus(); $("cAmt").select(); }, 60);
+}
+$("formCash").addEventListener("submit", function () {
+  if (!cTarget) return;
+  var chips = num($("cAmt").value);
+  var r = rowOf(cTarget);
+  commit("cashout", { playerId: cTarget, chips: chips });
+  toast((r ? r.name + " " : "") + "cashed out " + money(chips * G.state.rate));
+});
+$("cClear").onclick = function () {
+  if (cTarget) commit("cashout_clear", { playerId: cTarget });
+  $("dlgCash").close();
+};
+
+/* per-player menu */
+var mTarget = null;
+function openMenu(pid) {
+  var r = rowOf(pid); if (!r) return;
+  mTarget = pid;
+  var live = !G.state.finishedAt;
+  $("mTitle").textContent = r.name;
+  $("mSub").textContent = r.count + " buy-in" + (r.count === 1 ? "" : "s") + " · " + money(r.in) + " in" +
+    (r.done ? " · " + money(r.out) + " out" : "");
+  $("mUndo").disabled = r.count === 0 || !live;
+  $("mBuyin").disabled = !live;
+  openDlg($("dlgMenu"));
+}
+$("mBuyin").onclick = function () { $("dlgMenu").close(); askBuyin(mTarget); };
+$("mCash").onclick = function () { $("dlgMenu").close(); askCash(mTarget); };
+$("mUndo").onclick = function () {
+  var r = rowOf(mTarget); $("dlgMenu").close();
+  if (!r || !r.count) return;
+  var last = r.buyins[r.buyins.length - 1];
+  commit("void", { target: last.id });
+  toast("Removed " + money(last.amount) + " buy-in from " + r.name);
+};
+$("mRename").onclick = function () {
+  var r = rowOf(mTarget); $("dlgMenu").close();
+  if (!r) return;
+  pMode = "rename"; pTarget = mTarget;
+  $("pTitle").textContent = "Rename";
+  $("pSub").textContent = "Everyone in the game sees the new name.";
+  $("pSave").textContent = "Save";
+  $("pName").value = r.name;
+  openDlg($("dlgPlayer"));
+  setTimeout(function () { $("pName").focus(); $("pName").select(); }, 60);
+};
+$("mRemove").onclick = function () {
+  var r = rowOf(mTarget); $("dlgMenu").close();
+  if (!r) return;
+  confirmDlg("Remove " + r.name + "?", r.count
+    ? "Their " + money(r.in) + " in buy-ins comes out of the pot too."
+    : "They have no buy-ins yet.", function () {
+    commit("player_remove", { playerId: r.id });
+    toast(r.name + " removed");
+  });
+};
+
+/* confirm */
+var kFn = null;
+function confirmDlg(title, sub, fn) {
+  $("kTitle").textContent = title;
+  $("kSub").textContent = sub || "";
+  kFn = fn;
+  openDlg($("dlgConfirm"));
+}
+$("kOk").onclick = function () { $("dlgConfirm").close(); var f = kFn; kFn = null; if (f) f(); };
+
+/* finish / settle */
+$("finishBtn").onclick = function () {
+  var st = G.state, s = st.settings;
+  var missing = st.rows.filter(function (r) { return !r.done; });
+  var diff = st.totalOut - st.totalIn;
+
+  $("fSub").textContent = st.rows.length + " players · " + money(st.totalIn) + " in the pot";
+
+  var warn = "";
+  if (missing.length) {
+    warn = '<div class="note"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span>' +
+      "Still to count: <b>" + missing.map(function (r) { return esc(r.name); }).join(", ") +
+      "</b>. They're settled as if they walked with nothing.</span></div>";
+  } else if (Math.abs(diff) > 0.005) {
+    warn = '<div class="note"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span>' +
+      "Chips counted are <b>" + money(Math.abs(diff)) + (diff > 0 ? " over" : " under") +
+      "</b> the pot. Recount before paying out — the split below assumes the counts are right.</span></div>";
+  }
+  $("fWarn").innerHTML = warn;
+
+  var sorted = st.rows.slice().sort(function (a, b) { return b.net - a.net; });
+  $("fScores").innerHTML = sorted.map(function (r) {
+    var cls = r.net > 0.005 ? "up" : r.net < -0.005 ? "down" : "even";
+    return '<div><span class="nm">' + esc(r.name) + '</span><span class="mono net ' + cls + '">' +
+      (r.net > 0.005 ? "+" : "") + money(r.net) + "</span></div>";
+  }).join("");
+
+  var tx = settle(st.rows);
+  $("fTx").innerHTML = tx.length ? tx.map(function (t) {
+    return '<li><span class="nm">' + esc(t.from) + "</span>" +
+      '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' +
+      '<span class="nm to">' + esc(t.to) + "</span>" +
+      '<span class="amt">' + esc(money(t.amount)) + "</span></li>";
+  }).join("") : '<li class="muted" style="justify-content:center">Everyone broke even.</li>';
+
+  var end = $("fEnd");
+  end.textContent = st.finishedAt ? "Done" : "End game";
+  openDlg($("dlgFinish"));
+};
+$("fEnd").onclick = function () {
+  if (!G.state.finishedAt) commit("game_finish", {});
+  $("dlgFinish").close();
+  toast("Game finished");
+};
+
+/* settings */
+$("settingsBtn").onclick = openSettings;
+$("syncBtn").onclick = openSettings;
+function openSettings() {
+  var s = G.state.settings;
+  $("sName").value = s.name;
+  $("sBuyin").value = s.buyIn;
+  $("sCur").value = s.currency;
+  $("sChips").value = s.chipsPerBuyIn;
+  $("sDb").value = G.dbUrl || "";
+  $("sCode").value = G.code || "";
+  $("sReopen").classList.toggle("hidden", !G.state.finishedAt);
+  rateHint();
+  openDlg($("dlgSettings"));
+}
+function rateHint() {
+  var b = num($("sBuyin").value), c = num($("sChips").value), cur = $("sCur").value || "€";
+  $("sRate").textContent = c > 0
+    ? "1 chip = " + cur + (Math.round(b / c * 100) / 100) + ". Use the same number as the buy-in to enter cash directly."
+    : "Set how many chips a buy-in is worth.";
+}
+["sBuyin", "sChips", "sCur"].forEach(function (id) { $(id).addEventListener("input", rateHint); });
+
+$("sSave").onclick = function () {
+  var s = G.state.settings;
+  var next = {
+    name: $("sName").value.trim() || DEFAULTS.name,
+    buyIn: num($("sBuyin").value) || DEFAULTS.buyIn,
+    currency: $("sCur").value.trim() || DEFAULTS.currency,
+    chipsPerBuyIn: num($("sChips").value) || DEFAULTS.chipsPerBuyIn
+  };
+  var changed = false, k;
+  for (k in next) if (next[k] !== s[k]) changed = true;
+
+  var url = $("sDb").value.trim().replace(/\/+$/, "");
+  var code = $("sCode").value.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+  var moved = (url !== (G.dbUrl || "")) || (code && code !== G.code);
+
+  if (changed) commit("settings", { value: next });
+
+  if (moved) {
+    G.dbUrl = url || null;
+    store(LS.db, url || null);
+    if (code && code !== G.code) { switchGame(code); }
+    else { connect(); }
+  }
+  $("dlgSettings").close();
+  render();
+};
+$("sShare").onclick = function () {
+  if (!G.dbUrl) {
+    $("dlgSettings").close();
+    openDlg($("dlgHelp"));
+    return;
+  }
+  var link = location.origin + location.pathname + "#g=" + encodeURIComponent(G.code) + "&db=" + encodeURIComponent(G.dbUrl);
+  copy(link, "Share link copied");
+};
+$("sNew").onclick = function () {
+  confirmDlg("Start a new game?", "This game stays saved on this device. Everyone else needs the new share link.", function () {
+    $("dlgSettings").close();
+    switchGame(rid(7));
+    toast("New game started");
+  });
+};
+$("sHelp").onclick = function () { $("dlgSettings").close(); openDlg($("dlgHelp")); };
+$("sReopen").onclick = function () {
+  commit("game_reopen", {});
+  $("dlgSettings").close();
+  toast("Game reopened");
+};
+
+function copy(text, msg) {
+  var done = function () { toast(msg); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+  } else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  var ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); done(); } catch (e) { toast("Copy failed — link is in Settings"); }
+  document.body.removeChild(ta);
+}
+
+/* toast */
+var toastTimer = null;
+function toast(msg, actionLabel, fn) {
+  var t = $("toast"), a = $("toastAct");
+  $("toastMsg").textContent = msg;
+  if (actionLabel) {
+    a.textContent = actionLabel;
+    a.classList.remove("hidden");
+    a.onclick = function () { hideToast(); if (fn) fn(); };
+  } else { a.classList.add("hidden"); a.onclick = null; }
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, actionLabel ? 4200 : 2200);
+}
+function hideToast() { $("toast").classList.remove("show"); clearTimeout(toastTimer); }
+
+/* ============================================================
+   Boot
+   ============================================================ */
+
+function switchGame(code) {
+  disconnect();
+  G.code = code;
+  store(LS.code, code);
+  load(code);
+  render();
+  if (G.dbUrl) { connect(); } else { setStatus("off"); }
+  var h = "#g=" + encodeURIComponent(code) + (G.dbUrl ? "&db=" + encodeURIComponent(G.dbUrl) : "");
+  history.replaceState(null, "", location.pathname + location.search + h);
+}
+
+function parseHash() {
+  var out = {}, raw = location.hash.replace(/^#/, "");
+  raw.split("&").forEach(function (kv) {
+    var i = kv.indexOf("=");
+    if (i > 0) { try { out[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} }
+  });
+  return out;
+}
+
+// Opening a share link while the app is already open only changes the hash,
+// so nothing would reload. Switch games in place instead.
+window.addEventListener("hashchange", function () {
+  var h = parseHash();
+  if (!h.g) return;
+  var db = (h.db || "").replace(/\/+$/, "");
+  var dbChanged = db && db !== G.dbUrl;
+  if (dbChanged) { G.dbUrl = db; store(LS.db, db); }
+  if (h.g !== G.code || dbChanged) switchGame(h.g);
+});
+
+function boot() {
+  var hash = parseHash();
+
+  G.dbUrl = (hash.db || store(LS.db) || CFG.dbUrl || "").replace(/\/+$/, "") || null;
+  if (G.dbUrl) store(LS.db, G.dbUrl);
+
+  G.code = hash.g || store(LS.code) || rid(7);
+  store(LS.code, G.code);
+
+  load(G.code);
+  render();
+
+  if (G.dbUrl) connect(); else setStatus("off");
+
+  var h = "#g=" + encodeURIComponent(G.code) + (G.dbUrl ? "&db=" + encodeURIComponent(G.dbUrl) : "");
+  history.replaceState(null, "", location.pathname + location.search + h);
+
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  }
+}
+boot();
+
+})();
+</script>
+</body>
+</html>
