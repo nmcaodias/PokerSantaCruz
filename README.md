@@ -66,9 +66,16 @@ Without a database the app still works fully; it just stays on the one device.
 
 ## Deploying
 
-Pushing to `main` publishes the site via `.github/workflows/deploy.yml`. Enable it
-once under **Settings → Pages → Source → GitHub Actions**. The workflow also runs
-on `claude/**` branches so a work-in-progress branch can be previewed before merge.
+**One-time setup:** open **Settings → Pages** and set **Source** to **GitHub
+Actions**. A workflow's token is not permitted to create the Pages site itself, so
+this step can't be automated — until it's done, `.github/workflows/deploy.yml`
+fails at `configure-pages` with *"Get Pages site failed"*.
+
+After that, every push to the default branch publishes the site. The workflow also
+runs on `main`, `master`, and `claude/**` branches. To publish without waiting for
+another push, re-run the latest run from the **Actions** tab.
+
+The site lands at `https://<user>.github.io/<repo>/`.
 
 ## Running locally
 
