@@ -109,20 +109,20 @@ await B.goto(URL);
 await B.waitForTimeout(700);
 let bPlayers = await B.textContent('#tPl');
 let bIn = await B.textContent('#tIn');
-check('B receives the game history on join', bPlayers === '2' && bIn === '€40', `players=${bPlayers} in=${bIn}`);
+check('B receives the game history on join', bPlayers === '2' && bIn === '€10', `players=${bPlayers} in=${bIn}`);
 
 // live push A -> B
 await A.click('.card:nth-child(1) .plus');
 await A.waitForTimeout(600);
 bIn = await B.textContent('#tIn');
-check('buy-in on A streams to B', bIn === '€60', bIn);
+check('buy-in on A streams to B', bIn === '€15', bIn);
 
 // live push B -> A
 await addPlayer(B, 'Tiago');
 await B.waitForTimeout(600);
 let aPlayers = await A.textContent('#tPl');
 let aIn = await A.textContent('#tIn');
-check('player added on B streams to A', aPlayers === '3' && aIn === '€80', `players=${aPlayers} in=${aIn}`);
+check('player added on B streams to A', aPlayers === '3' && aIn === '€20', `players=${aPlayers} in=${aIn}`);
 
 // simultaneous buy-ins on both devices must both survive (union, not overwrite)
 await Promise.all([
@@ -132,7 +132,7 @@ await Promise.all([
 await A.waitForTimeout(900);
 aIn = await A.textContent('#tIn');
 bIn = await B.textContent('#tIn');
-check('simultaneous buy-ins on both devices both count', aIn === '€120' && bIn === '€120', `A=${aIn} B=${bIn}`);
+check('simultaneous buy-ins on both devices both count', aIn === '€30' && bIn === '€30', `A=${aIn} B=${bIn}`);
 
 // settings propagate
 await A.click('#settingsBtn'); await A.waitForTimeout(200);
@@ -148,22 +148,22 @@ await B.waitForTimeout(400);
 const bStatus = await B.textContent('#syncTxt');
 check('B shows offline while disconnected', bStatus === 'Offline' || bStatus === 'Saving' || bStatus === 'Syncing', bStatus);
 const bInOffline = await B.textContent('#tIn');
-check('offline edit applies locally right away', bInOffline === '€140', bInOffline);
+check('offline edit applies locally right away', bInOffline === '€35', bInOffline);
 
 await B._ctx.setOffline(false);
 await B.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 await B.waitForTimeout(1500);
 aIn = await A.textContent('#tIn');
-check('queued offline edit reaches A once back online', aIn === '€140', aIn);
+check('queued offline edit reaches A once back online', aIn === '€35', aIn);
 check('offline edit produced a real upload', patchCount > wasPatches, `${wasPatches} -> ${patchCount}`);
 
-// count everyone out (pot is €140: Nuno 40, Marta 60, Tiago 40)
+// count everyone out (pot is €35: Nuno 10, Marta 15, Tiago 10)
 const cashOut = async (pg, idx, chips) => {
   await pg.click(`.card:nth-child(${idx}) .fin`); await pg.waitForTimeout(150);
   await pg.fill('#cAmt', String(chips)); await pg.click('#formCash button[type=submit]');
   await pg.waitForTimeout(200);
 };
-await cashOut(A, 1, 50); await cashOut(A, 2, 40); await cashOut(A, 3, 50);
+await cashOut(A, 1, 12); await cashOut(A, 2, 8); await cashOut(A, 3, 15);
 await A.waitForTimeout(800);
 
 // Both devices must derive byte-identical figures from the same event log.
@@ -191,7 +191,7 @@ await B.reload();
 await B.waitForTimeout(800);
 bIn = await B.textContent('#tIn');
 bPlayers = await B.textContent('#tPl');
-check('reload does not duplicate events', bIn === '€140' && bPlayers === '3', `in=${bIn} players=${bPlayers}`);
+check('reload does not duplicate events', bIn === '€35' && bPlayers === '3', `in=${bIn} players=${bPlayers}`);
 
 check('no runtime errors across both devices', errors.length === 0, errors.join(' | '));
 
