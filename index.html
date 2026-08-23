@@ -501,7 +501,7 @@ var LS = {
   code: "psc.code",
   log: function (c) { return "psc.log." + c; }
 };
-var DEFAULTS = { name: "Poker Santa Cruz", buyIn: 20, currency: "€", chipsPerBuyIn: 5 };
+var DEFAULTS = { name: "Poker Santa Cruz", buyIn: 5, currency: "€", chipsPerBuyIn: 5 };
 
 var deviceId = store(LS.dev) || (function () { var d = rid(6); store(LS.dev, d); return d; })();
 

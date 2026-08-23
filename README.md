@@ -22,6 +22,8 @@ books balance and amber when they don't — a chip miscount is caught before any
 gets paid.
 
 Buy-in amount, currency, game name, and the chip-to-money ratio live in Settings.
+A new game starts at a **€5 buy-in** with one chip to the euro; change either for the
+game you are in and everyone at the table sees it.
 Leave *chips per buy-in* equal to the buy-in to enter cash directly; set it to the
 number of physical chips a buy-in buys to enter chip counts instead.
 
