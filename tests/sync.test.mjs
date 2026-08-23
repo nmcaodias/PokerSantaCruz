@@ -157,9 +157,33 @@ aIn = await A.textContent('#tIn');
 check('queued offline edit reaches A once back online', aIn === '€140', aIn);
 check('offline edit produced a real upload', patchCount > wasPatches, `${wasPatches} -> ${patchCount}`);
 
-// finish on A shows on B
-await A.click('#finishBtn'); await A.waitForTimeout(300);
-await A.click('#fEnd'); await A.waitForTimeout(700);
+// count everyone out (pot is €140: Nuno 40, Marta 60, Tiago 40)
+const cashOut = async (pg, idx, chips) => {
+  await pg.click(`.card:nth-child(${idx}) .fin`); await pg.waitForTimeout(150);
+  await pg.fill('#cAmt', String(chips)); await pg.click('#formCash button[type=submit]');
+  await pg.waitForTimeout(200);
+};
+await cashOut(A, 1, 50); await cashOut(A, 2, 40); await cashOut(A, 3, 50);
+await A.waitForTimeout(800);
+
+// Both devices must derive byte-identical figures from the same event log.
+// The chip allocator breaks rounding ties on player id precisely so two phones
+// never show different numbers for the same game.
+await A.click('#finishBtn'); await A.waitForTimeout(400);
+await B.click('#finishBtn'); await B.waitForTimeout(400);
+const grab = pg => pg.evaluate(() => ({
+  audit: document.getElementById('fAudit').textContent.replace(/\s+/g, ' ').trim(),
+  tx: document.getElementById('fTx').textContent.replace(/\s+/g, ' ').trim(),
+  checks: document.getElementById('fChecks').textContent.replace(/\s+/g, ' ').trim(),
+}));
+const va = await grab(A), vb = await grab(B);
+check('both devices compute the same audit', va.audit === vb.audit, `A=${va.audit}\n     B=${vb.audit}`);
+check('both devices compute the same payments', va.tx === vb.tx, `A=${va.tx}\n     B=${vb.tx}`);
+check('both devices pass the same checks', va.checks === vb.checks, `A=${va.checks}\n     B=${vb.checks}`);
+check('a fully counted game is not blocked', !(await A.isDisabled('#fEnd')), 'End game disabled: ' + va.checks);
+
+await B.click('#dlgFinish [data-close]'); await B.waitForTimeout(150);
+await A.click('#fEnd'); await A.waitForTimeout(800);
 check('finishing on A locks B too', await B.isDisabled('#addBtn'), 'B still accepts players');
 
 // reload B: server state survives, no duplicate events
