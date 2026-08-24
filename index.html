@@ -495,6 +495,7 @@ code.code{
   <label class="f"><span>Game code</span><input type="text" id="sCode" autocomplete="off" spellcheck="false"></label>
   <div class="menu">
     <button id="sShare"><svg viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v14"/></svg> Copy share link</button>
+    <button id="sNew"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Start a new game</button>
     <button id="sHelp"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg> How do I get a database URL?</button>
     <button id="sReopen" class="hidden"><svg viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg> Reopen finished game</button>
   </div>
@@ -1591,13 +1592,17 @@ $("gList").addEventListener("click", function (e) {
   if (target !== G.code) { switchGame(target); toast("Switched game"); }
 });
 
-$("gNew").onclick = function () {
+/* Reachable from the games list and from settings. It lives in both because
+   it belongs beside the other games, but settings is where people look. */
+function startNewGame(closeWhich) {
   confirmDlg("Start a new game?", "This one stays in your games list. Everyone else needs the new share link.", function () {
-    $("dlgGames").close();
+    if (closeWhich) $(closeWhich).close();
     switchGame(rid(7));
     toast("New game started");
   });
-};
+}
+$("gNew").onclick = function () { startNewGame("dlgGames"); };
+$("sNew").onclick = function () { startNewGame("dlgSettings"); };
 
 /* settings */
 $("settingsBtn").onclick = openSettings;

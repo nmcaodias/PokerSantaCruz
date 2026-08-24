@@ -39,7 +39,14 @@ const cashOut = async (i, v) => {
   await page.click(`.card:nth-child(${i}) .fin`); await page.waitForTimeout(140);
   await page.fill('#cAmt', String(v)); await page.click('#formCash button[type=submit]'); await page.waitForTimeout(140);
 };
-const openGames = async () => { await page.click('#gamesBtn'); await page.waitForTimeout(250); };
+const gamesOpen = () => page.$eval('#dlgGames', d => d.open);
+const openGames = async () => {
+  if (await gamesOpen()) return;                 // some flows leave it open
+  await page.click('#gamesBtn'); await page.waitForTimeout(250);
+};
+const closeGames = async () => {
+  if (await gamesOpen()) { await page.click('#dlgGames [data-close]'); await page.waitForTimeout(150); }
+};
 const gamesText = () => page.$eval('#gList', e => e.textContent.replace(/\s+/g, ' ').trim());
 const seasonRows = () => page.$$eval('#gSeason div', ds => ds.map(d => d.textContent.replace(/\s+/g, ' ').trim()));
 const newGame = async () => {
@@ -89,7 +96,7 @@ await endGame();
 
 await openGames();
 txt = await gamesText();
-check('both games are listed', (txt.match(/players/g) || []).length === 2, txt);
+check('both games are listed', (txt.match(/\d+ player/g) || []).length === 2, txt);
 check('the older game is still there', /2 players/.test(txt) && /3 players/.test(txt), txt);
 season = await seasonRows();
 check('season aggregates across both nights',
@@ -119,7 +126,7 @@ await page.click('#dlgGames [data-close]'); await page.waitForTimeout(150);
 // ---- 5. history survives a reload ---------------------------------------
 await page.reload(); await page.waitForTimeout(400);
 await openGames();
-check('history survives a reload', (await gamesText()).match(/players/g).length === 2, await gamesText());
+check('history survives a reload', (await gamesText()).match(/\d+ player/g).length === 2, await gamesText());
 
 // ---- 6. a different currency is left out of the season ------------------
 await page.click('#dlgGames [data-close]'); await page.waitForTimeout(150);
@@ -135,14 +142,46 @@ check('a dollar game does not join the euro season', !season.some(r => /Zed/.tes
 check('the excluded game is called out', /another currency/.test(await page.textContent('#gSeasonNote')), await page.textContent('#gSeasonNote'));
 
 // ---- 7. removing a game --------------------------------------------------
-const before = (await gamesText()).match(/players/g).length;
+const before = (await gamesText()).match(/\d+ player/g).length;
 const delCode = await page.$$eval('#gList .gdel', b => b.map(x => x.dataset.del));
 await page.click(`.gdel[data-del="${delCode[0]}"]`); await page.waitForTimeout(250);
 await page.click('#kOk'); await page.waitForTimeout(350);
-const after = (await gamesText()).match(/players/g).length;
+const after = (await gamesText()).match(/\d+ player/g).length;
 check('removing a game drops it from the list', after === before - 1, `${before} -> ${after}`);
 check('the current game has no delete button',
   await page.$$eval('#gList .gamerow.now .gdel', b => b.length) === 0, 'current game is deletable');
+
+// ---- 8. both ways of starting a new game ---------------------------------
+// It lives in the games list and in settings. A regression removed it from
+// settings once; these pin both entry points.
+{
+  const countGames = async () => {
+    await openGames();
+    const n = ((await gamesText()).match(/\d+ player/g) || []).length;
+    await closeGames();
+    return n;
+  };
+  const before = await countGames();
+
+  // from settings
+  await page.click('#settingsBtn'); await page.waitForTimeout(250);
+  check('settings offers Start a new game', await page.isVisible('#sNew'), 'missing from settings');
+  await page.click('#sNew'); await page.waitForTimeout(200);
+  await page.click('#kOk'); await page.waitForTimeout(400);
+  await addPlayer('Solo');
+  check('starting from settings opens a fresh game',
+    (await page.textContent('#tPl')) === '1', await page.textContent('#tPl'));
+  check('the previous game is kept', (await countGames()) === before + 1, `${before} -> ${await countGames()}`);
+
+  // from the games list
+  await openGames();
+  check('the games list offers it too', await page.isVisible('#gNew'), 'missing from games list');
+  await page.click('#gNew'); await page.waitForTimeout(200);
+  await page.click('#kOk'); await page.waitForTimeout(400);
+  await addPlayer('Duo');
+  check('starting from the games list opens a fresh game',
+    (await page.textContent('#tPl')) === '1', await page.textContent('#tPl'));
+}
 
 check('no runtime errors', errors.length === 0, errors.join(' | '));
 
