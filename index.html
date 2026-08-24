@@ -587,11 +587,29 @@ function commit(type, data) {
   var e = mkEvent(type, data);
   G.events[e.id] = e;
   G.pending[e.id] = e;
-  persist();
-  render();
+  render();          // schedules the save; the screen updates first
   push();
   return e;
 }
+
+/* Writing the log and the games index means serialising everything and a
+   synchronous localStorage round-trip. Doing that before the paint made every
+   tap wait on work nobody is looking at. It runs right after the frame
+   instead, and is forced out whenever the page could go away, so nothing is
+   ever left only in memory. */
+var saveTimer = null;
+function scheduleSave() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(flushSave, 0);
+}
+function flushSave() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  persist();
+  touchIndex();
+}
+window.addEventListener("pagehide", flushSave);
+document.addEventListener("visibilitychange", function () { if (document.hidden) flushSave(); });
 function persist() {
   if (!G.code) return;
   try { store(LS.log(G.code), JSON.stringify({ events: G.events, pending: Object.keys(G.pending) })); }
@@ -650,9 +668,18 @@ function writeIndex(list) {
   try { store(LS.index, JSON.stringify(list)); } catch (e) { /* quota */ }
 }
 
+var lastIndexed = "";
 function touchIndex() {
   if (!G.code || !G.state) return;
-  var list = readIndex(), s = summarize(G.state, G.code), at = -1;
+  var s = summarize(G.state, G.code);
+
+  // Re-serialising the whole index on every render was pure waste: the summary
+  // is unchanged for most renders, and the cost grows with every game played.
+  var sig = G.code + "|" + JSON.stringify(s);
+  if (sig === lastIndexed) return;
+  lastIndexed = sig;
+
+  var list = readIndex(), at = -1;
   for (var i = 0; i < list.length; i++) if (list[i].code === G.code) { at = i; break; }
   if (at >= 0) {
     // keep the earliest creation time we have ever seen for this game
@@ -666,6 +693,7 @@ function touchIndex() {
 }
 
 function forgetGame(code) {
+  lastIndexed = "";
   writeIndex(readIndex().filter(function (g) { return g.code !== code; }));
   try { store(LS.log(code), null); } catch (e) {}
 }
@@ -1146,29 +1174,9 @@ function render() {
     (st.counted === st.rows.length ? (st.totalOutC === st.totalInC ? "ok" : "bad") : "");
 
   emptyEl.classList.toggle("hidden", st.rows.length > 0);
-  listEl.innerHTML = st.rows.map(function (r) {
-    var netCls = r.netC > 0 ? "up" : r.netC < 0 ? "down" : "even";
-    var meta = r.count + " buy-in" + (r.count === 1 ? "" : "s") +
-      '<span class="sep">·</span>' + fmtCents(r.inC, s) + " in";
-    if (r.done) {
-      meta += '<span class="sep">·</span><span class="net ' + netCls + '">' +
-        (r.netC > 0 ? "+" : "") + fmtCents(r.netC, s) + "</span>";
-    }
-    return '<article class="card' + (r.done ? " done" : "") + '" data-id="' + r.id + '">' +
-      '<div class="who">' +
-        '<button data-act="menu" data-id="' + r.id + '">' + esc(r.name) + "</button>" +
-        '<div class="meta">' + meta + "</div>" +
-      "</div>" +
-      '<div class="acts">' +
-        '<button class="plus" data-act="buyin" data-id="' + r.id + '" aria-label="Add buy-in for ' + esc(r.name) + '"' + (live ? "" : " disabled") + '>' +
-          '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>' +
-        '<button class="fin' + (r.done ? " set" : "") + '" data-act="cash" data-id="' + r.id + '">' +
-          (r.done ? fmtChips(r.chips) : "Finish") + "</button>" +
-      "</div>" +
-    "</article>";
-  }).join("");
+  renderList(st.rows, s, live);
 
-  touchIndex();
+  scheduleSave();
   if ($("dlgFinish").open) renderSettle();
   if ($("dlgGames").open) renderGames();
 
@@ -1178,6 +1186,75 @@ function render() {
   fb.lastChild.textContent = live ? " Finish game" : " Results";
   paintStatus();
 }
+/* Rows are kept as live nodes and updated in place. Rebuilding the list with
+   innerHTML on every tap threw away the button being pressed, which cancelled
+   its own press animation and made the tap feel like it had not registered. */
+var rowNodes = {};
+
+function makeRow() {
+  var el = document.createElement("article");
+  el.className = "card";
+  el.innerHTML =
+    '<div class="who"><button data-act="menu"></button><div class="meta"></div></div>' +
+    '<div class="acts">' +
+      '<button class="plus" data-act="buyin"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>' +
+      '<button class="fin" data-act="cash"></button>' +
+    "</div>";
+  return {
+    el: el,
+    name: el.querySelector("[data-act=menu]"),
+    meta: el.querySelector(".meta"),
+    plus: el.querySelector(".plus"),
+    fin: el.querySelector(".fin")
+  };
+}
+
+function renderList(rows, s, live) {
+  var seen = {}, i;
+
+  for (i = 0; i < rows.length; i++) {
+    var r = rows[i], n = rowNodes[r.id];
+    if (!n) { n = rowNodes[r.id] = makeRow(); }
+    seen[r.id] = 1;
+
+    // only touch what actually changed; every write here costs layout
+    if (n.el.parentNode !== listEl || listEl.children[i] !== n.el) {
+      listEl.insertBefore(n.el, listEl.children[i] || null);
+    }
+    if (n._name !== r.name) {
+      n._name = r.name;
+      n.name.textContent = r.name;
+      n.plus.setAttribute("aria-label", "Add buy-in for " + r.name);
+      n.name.dataset.id = r.id;
+      n.plus.dataset.id = r.id;
+      n.fin.dataset.id = r.id;
+    }
+    var netCls = r.netC > 0 ? "up" : r.netC < 0 ? "down" : "even";
+    var meta = r.count + " buy-in" + (r.count === 1 ? "" : "s") +
+      '<span class="sep">·</span>' + fmtCents(r.inC, s) + " in";
+    if (r.done) {
+      meta += '<span class="sep">·</span><span class="net ' + netCls + '">' +
+        (r.netC > 0 ? "+" : "") + fmtCents(r.netC, s) + "</span>";
+    }
+    if (n._meta !== meta) { n._meta = meta; n.meta.innerHTML = meta; }
+
+    var cardCls = r.done ? "card done" : "card";
+    if (n.el.className !== cardCls) n.el.className = cardCls;
+    var finTxt = r.done ? fmtChips(r.chips) : "Finish";
+    if (n._fin !== finTxt) { n._fin = finTxt; n.fin.textContent = finTxt; }
+    var finCls = r.done ? "fin set" : "fin";
+    if (n.fin.className !== finCls) n.fin.className = finCls;
+    if (n.plus.disabled !== !live) n.plus.disabled = !live;
+  }
+
+  for (var id in rowNodes) {
+    if (!seen[id]) {
+      if (rowNodes[id].el.parentNode) rowNodes[id].el.parentNode.removeChild(rowNodes[id].el);
+      delete rowNodes[id];
+    }
+  }
+}
+
 function fmtChips(c) {
   return (Math.round(c * 100) % 100 === 0) ? String(Math.round(c)) : String(Math.round(c * 100) / 100);
 }
@@ -1704,6 +1781,8 @@ function hideToast() { $("toast").classList.remove("show"); clearTimeout(toastTi
    ============================================================ */
 
 function switchGame(code) {
+  flushSave();
+  lastIndexed = "";
   disconnect();
   G.code = code;
   store(LS.code, code);

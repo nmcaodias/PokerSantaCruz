@@ -149,6 +149,11 @@ set to "GitHub Actions" by hand, and a workflow token is not permitted to set it
 Treat `gh-pages` as generated output: never commit to it directly, since each
 deploy force-updates it to match `main`.
 
+The service worker serves the page from cache and refreshes it in the background,
+so a phone that has opened the app before shows it instantly rather than waiting on
+the network. The trade is that a deploy is picked up on the **next** launch, not the
+one during which it landed.
+
 ## Running locally
 
 ```sh
