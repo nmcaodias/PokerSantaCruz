@@ -32,8 +32,8 @@ number of physical chips a buy-in buys to enter chip counts instead.
 Tapping the game name in the header opens the games list: every game played on
 this device, most recent first, with the date, the number of players and the pot.
 Tap one to reopen it — a finished game stays locked, so old results can be read
-without being disturbed. Starting a new game lives here too, next to the games it
-joins.
+without being disturbed. **Start a new game** sits both here, next to the games it
+joins, and in Settings where it has always been.
 
 Below the list, **season totals** add up each player's net across finished games.
 Players are matched by name, case- and space-insensitively, showing the most recent
