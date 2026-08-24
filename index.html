@@ -57,10 +57,14 @@ header{
 }
 .bar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .title{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px}
-.title h1{
-  margin:0;font-size:19px;font-weight:650;letter-spacing:-.02em;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+.title h1{margin:0;min-width:0}
+.gamebtn{
+  display:flex;align-items:center;gap:5px;max-width:100%;padding:2px 0;
+  font-size:19px;font-weight:650;letter-spacing:-.02em;
 }
+.gamebtn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gamebtn svg{width:16px;height:16px;flex:none;stroke:var(--faint);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.gamebtn:active{opacity:.6}
 .icon-btn{
   width:38px;height:38px;flex:none;border-radius:11px;
   display:grid;place-items:center;
@@ -249,6 +253,32 @@ h3.sec{
 .blockmsg{margin:9px 0 0;font-size:12.5px;color:var(--danger);text-align:center}
 .blockmsg:empty{display:none}
 
+/* games list */
+.games{display:flex;flex-direction:column;gap:7px}
+.gamerow{display:flex;align-items:stretch;gap:7px}
+.gamerow .gopen{
+  flex:1;min-width:0;text-align:left;padding:10px 13px;border-radius:12px;
+  background:var(--bg);border:1px solid var(--line-soft);
+}
+.gamerow.now .gopen{border-color:rgba(46,160,67,.4);background:linear-gradient(180deg,rgba(46,160,67,.06),transparent) var(--bg)}
+.gamerow .gopen:active{background:var(--bg-elev-2)}
+.gamerow .nm{display:flex;align-items:center;gap:7px;font-weight:600;font-size:15px}
+.gamerow .nm b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.gamerow .calc{display:block;margin-top:2px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.gamerow .tag{
+  flex:none;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 6px;border-radius:5px;background:rgba(46,160,67,.16);color:var(--accent-hi);
+}
+.gamerow .tag.open{background:rgba(210,153,34,.16);color:var(--warn)}
+.gamerow .gdel{
+  flex:none;width:42px;border-radius:12px;display:grid;place-items:center;
+  background:var(--bg);border:1px solid var(--line-soft);
+}
+.gamerow .gdel svg{width:16px;height:16px;stroke:var(--faint);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.gamerow .gdel:active{background:rgba(248,81,73,.12)}
+.gamerow .gdel:active svg{stroke:var(--danger)}
+.games .none{padding:14px 2px;font-size:13.5px;color:var(--faint)}
+
 /* audit table */
 .audit{border:1px solid var(--line-soft);border-radius:12px;overflow:hidden;font-variant-numeric:tabular-nums}
 .audit .r{display:flex;justify-content:space-between;gap:10px;padding:9px 13px;background:var(--bg);border-bottom:1px solid var(--line-soft);font-size:14px}
@@ -319,7 +349,7 @@ code.code{
 <div class="app">
   <header>
     <div class="bar">
-      <div class="title"><h1 id="gameName">Poker Santa Cruz</h1></div>
+      <div class="title"><h1><button id="gamesBtn" class="gamebtn"><span id="gameName">Poker Santa Cruz</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></h1></div>
       <button class="sync-dot" id="syncBtn" data-s="off" title="Sync status"><i></i><span id="syncTxt">Local</span></button>
       <button class="icon-btn" id="settingsBtn" aria-label="Settings">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -433,6 +463,21 @@ code.code{
   </div>
 </form></dialog>
 
+<dialog id="dlgGames"><div class="sheet">
+  <h2>Games</h2>
+  <p class="sub" id="gSub"></p>
+  <div class="games" id="gList"></div>
+  <div id="gSeasonWrap" class="hidden">
+    <h3 class="sec">Season totals</h3>
+    <div class="scores" id="gSeason"></div>
+    <p class="sub" id="gSeasonNote" style="margin-top:8px"></p>
+  </div>
+  <div class="menu" style="margin-top:14px">
+    <button id="gNew"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Start a new game</button>
+  </div>
+  <div class="acts-row"><button type="button" class="btn primary" data-close>Close</button></div>
+</div></dialog>
+
 <dialog id="dlgSettings"><div class="sheet">
   <h2>Settings</h2>
   <p class="sub">Applies to everyone in this game.</p>
@@ -450,7 +495,6 @@ code.code{
   <label class="f"><span>Game code</span><input type="text" id="sCode" autocomplete="off" spellcheck="false"></label>
   <div class="menu">
     <button id="sShare"><svg viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v14"/></svg> Copy share link</button>
-    <button id="sNew"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Start a new game</button>
     <button id="sHelp"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg> How do I get a database URL?</button>
     <button id="sReopen" class="hidden"><svg viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg> Reopen finished game</button>
   </div>
@@ -499,6 +543,7 @@ var LS = {
   dev: "psc.device",
   db: "psc.db",
   code: "psc.code",
+  index: "psc.games",
   log: function (c) { return "psc.log." + c; }
 };
 var DEFAULTS = { name: "Poker Santa Cruz", buyIn: 5, currency: "€", chipsPerBuyIn: 5 };
@@ -560,6 +605,104 @@ function load(code) {
     G.events = o.events || {};
     (o.pending || []).forEach(function (id) { if (G.events[id]) G.pending[id] = G.events[id]; });
   } catch (err) { /* corrupt entry — start this game empty rather than crash */ }
+}
+
+/* ============================================================
+   Game index
+
+   A per-device list of every game this phone has seen, so finished
+   nights remain browsable after a new one starts. It is derived data:
+   each entry is a summary folded from that game's own event log, and
+   losing it costs nothing but the listing.
+
+   Deliberately local. A group-wide index would mean reading /games in
+   the database, which the documented rules do not grant (they allow
+   read only on /games/$code), so it would force every user to widen
+   their rules. Sharing history across phones wants a "league code"
+   that the existing sync machinery could carry as just another log.
+   ============================================================ */
+
+function summarize(st, code) {
+  var created = 0;
+  st.rows.forEach(function (r) { if (!created || r.at < created) created = r.at; });
+  return {
+    code: code,
+    name: st.settings.name,
+    currency: st.settings.currency,
+    createdAt: created || Date.now(),
+    finishedAt: st.finishedAt || 0,
+    totalInC: st.totalInC,
+    balanced: st.rows.length > 0 && st.counted === st.rows.length && st.totalInC === st.totalOutC,
+    players: st.rows.map(function (r) {
+      return { name: r.name, inC: r.inC, outC: r.outC, netC: r.netC, done: r.done };
+    })
+  };
+}
+
+function readIndex() {
+  try {
+    var a = JSON.parse(store(LS.index) || "[]");
+    return Array.isArray(a) ? a : [];
+  } catch (e) { return []; }
+}
+function writeIndex(list) {
+  try { store(LS.index, JSON.stringify(list)); } catch (e) { /* quota */ }
+}
+
+function touchIndex() {
+  if (!G.code || !G.state) return;
+  var list = readIndex(), s = summarize(G.state, G.code), at = -1;
+  for (var i = 0; i < list.length; i++) if (list[i].code === G.code) { at = i; break; }
+  if (at >= 0) {
+    // keep the earliest creation time we have ever seen for this game
+    if (list[at].createdAt && list[at].createdAt < s.createdAt) s.createdAt = list[at].createdAt;
+    list[at] = s;
+  } else {
+    if (!G.state.rows.length) return;   // an empty game is not worth listing yet
+    list.push(s);
+  }
+  writeIndex(list);
+}
+
+function forgetGame(code) {
+  writeIndex(readIndex().filter(function (g) { return g.code !== code; }));
+  try { store(LS.log(code), null); } catch (e) {}
+}
+
+/* Running totals per player across finished games. Names are the only
+   identity that carries between games, so they are matched case- and
+   space-insensitively, displaying the most recent spelling. Games in a
+   different currency are left out rather than silently added up. */
+function seasonTotals(list) {
+  // The season belongs to whichever currency most of the finished games used.
+  // Taking the current game's currency instead would let one game in another
+  // currency silently replace the standings while you looked at it.
+  var counts = {}, best = null, bestN = 0;
+  list.forEach(function (g) {
+    if (!g.finishedAt) return;
+    var c = g.currency || DEFAULTS.currency;
+    counts[c] = (counts[c] || 0) + 1;
+    if (counts[c] > bestN) { bestN = counts[c]; best = c; }
+  });
+  var currency = best;
+
+  var by = {}, order = [], skipped = 0;
+  list.forEach(function (g) {
+    if (!g.finishedAt) return;
+    if (currency && (g.currency || DEFAULTS.currency) !== currency) { skipped++; return; }
+    (g.players || []).forEach(function (p) {
+      var key = String(p.name || "").trim().toLowerCase();
+      if (!key) return;
+      if (!by[key]) { by[key] = { name: p.name, netC: 0, games: 0 }; order.push(key); }
+      by[key].name = p.name;
+      by[key].netC += p.netC || 0;
+      by[key].games++;
+    });
+  });
+  return {
+    rows: order.map(function (k) { return by[k]; }).sort(function (a, b) { return b.netC - a.netC; }),
+    skipped: skipped, currency: currency, counted: bestN
+  };
 }
 
 /* ---- fold: log -> current state ---- */
@@ -1024,7 +1167,9 @@ function render() {
     "</article>";
   }).join("");
 
+  touchIndex();
   if ($("dlgFinish").open) renderSettle();
+  if ($("dlgGames").open) renderGames();
 
   $("addBtn").disabled = !live;
   var fb = $("finishBtn");
@@ -1362,6 +1507,98 @@ $("fEnd").onclick = function () {
   toast("Game finished");
 };
 
+/* ---- games list ---- */
+$("gamesBtn").onclick = function () { renderGames(); openDlg($("dlgGames")); };
+
+function gameDate(ts) {
+  if (!ts) return "";
+  try {
+    return new Date(ts).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  } catch (e) { return ""; }
+}
+function gameTime(ts) {
+  if (!ts) return "";
+  try {
+    return new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  } catch (e) { return ""; }
+}
+
+function renderGames() {
+  var cur = G.state.settings.currency;
+  var list = readIndex().slice().sort(function (a, b) {
+    return (b.finishedAt || b.createdAt || 0) - (a.finishedAt || a.createdAt || 0);
+  });
+
+  var finished = list.filter(function (g) { return g.finishedAt; }).length;
+  $("gSub").textContent = list.length
+    ? list.length + (list.length === 1 ? " game" : " games") + " on this device · " +
+      finished + " finished"
+    : "Games you play on this device are kept here.";
+
+  $("gList").innerHTML = list.length ? list.map(function (g) {
+    var isNow = g.code === G.code;
+    var n = (g.players || []).length;
+    var when = g.finishedAt || g.createdAt;
+    var bits = [gameTime(when), n + (n === 1 ? " player" : " players"),
+      fmtCents(g.totalInC, { currency: g.currency || cur })];
+    if (g.name && g.name !== DEFAULTS.name) bits.push(g.name);
+    if (g.finishedAt && !g.balanced) bits.push("unbalanced");
+    var tag = (isNow ? '<span class="tag">now</span>' : "") +
+      (g.finishedAt ? "" : '<span class="tag open">open</span>');
+    return '<div class="gamerow' + (isNow ? " now" : "") + '">' +
+      '<button class="gopen" data-code="' + esc(g.code) + '">' +
+        '<span class="nm"><b>' + esc(gameDate(when) || "Game") + "</b>" + tag + "</span>" +
+        '<span class="calc">' + esc(bits.filter(Boolean).join(" · ")) + "</span>" +
+      "</button>" +
+      (isNow ? "" : '<button class="gdel" data-del="' + esc(g.code) + '" aria-label="Remove ' + esc(g.name || "game") + '">' +
+        '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>') +
+      "</div>";
+  }).join("") : '<p class="none">Nothing yet. The game you are in appears here once it has a player.</p>';
+
+  var season = seasonTotals(list);
+  $("gSeasonWrap").classList.toggle("hidden", season.rows.length === 0);
+  $("gSeason").innerHTML = season.rows.map(function (r) {
+    var cls = r.netC > 0 ? "up" : r.netC < 0 ? "down" : "even";
+    return '<div><span class="nm">' + esc(r.name) +
+      '</span><span class="mono net ' + cls + '">' + (r.netC > 0 ? "+" : "") +
+      fmtCents(r.netC, { currency: season.currency }) + "</span></div>";
+  }).join("");
+  $("gSeasonNote").textContent = season.rows.length
+    ? "Across " + season.counted + (season.counted === 1 ? " finished game" : " finished games") +
+      (season.skipped ? " · " + season.skipped + " in another currency left out" : "")
+    : "";
+}
+
+$("gList").addEventListener("click", function (e) {
+  var del = e.target.closest("[data-del]");
+  if (del) {
+    var code = del.dataset.del;
+    var g = readIndex().filter(function (x) { return x.code === code; })[0];
+    $("dlgGames").close();
+    confirmDlg("Remove this game?", (g && g.name ? "\u201c" + g.name + "\u201d" : "This game") +
+      " is deleted from this device for good. Anyone else who has the link keeps their copy.", function () {
+      forgetGame(code);
+      renderGames();
+      openDlg($("dlgGames"));
+      toast("Game removed");
+    });
+    return;
+  }
+  var open = e.target.closest("[data-code]");
+  if (!open) return;
+  var target = open.dataset.code;
+  $("dlgGames").close();
+  if (target !== G.code) { switchGame(target); toast("Switched game"); }
+});
+
+$("gNew").onclick = function () {
+  confirmDlg("Start a new game?", "This one stays in your games list. Everyone else needs the new share link.", function () {
+    $("dlgGames").close();
+    switchGame(rid(7));
+    toast("New game started");
+  });
+};
+
 /* settings */
 $("settingsBtn").onclick = openSettings;
 $("syncBtn").onclick = openSettings;
@@ -1419,13 +1656,6 @@ $("sShare").onclick = function () {
   }
   var link = location.origin + location.pathname + "#g=" + encodeURIComponent(G.code) + "&db=" + encodeURIComponent(G.dbUrl);
   copy(link, "Share link copied");
-};
-$("sNew").onclick = function () {
-  confirmDlg("Start a new game?", "This game stays saved on this device. Everyone else needs the new share link.", function () {
-    $("dlgSettings").close();
-    switchGame(rid(7));
-    toast("New game started");
-  });
 };
 $("sHelp").onclick = function () { $("dlgSettings").close(); openDlg($("dlgHelp")); };
 $("sReopen").onclick = function () {

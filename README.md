@@ -27,6 +27,28 @@ game you are in and everyone at the table sees it.
 Leave *chips per buy-in* equal to the buy-in to enter cash directly; set it to the
 number of physical chips a buy-in buys to enter chip counts instead.
 
+## Games and the season
+
+Tapping the game name in the header opens the games list: every game played on
+this device, most recent first, with the date, the number of players and the pot.
+Tap one to reopen it — a finished game stays locked, so old results can be read
+without being disturbed. Starting a new game lives here too, next to the games it
+joins.
+
+Below the list, **season totals** add up each player's net across finished games.
+Players are matched by name, case- and space-insensitively, showing the most recent
+spelling. Only finished games count, since a game still running has no settled
+figures. If games were played in more than one currency, the season belongs to
+whichever currency most of them used and the rest are excluded with a note — taking
+the current game's currency instead would let one odd game silently replace the
+standings while you looked at it.
+
+The list is **per device**. A shared, group-wide history would mean reading `/games`
+in the database, which the sync rules below do not grant — they allow reads only on
+`/games/$code` — so it would force everyone to widen their rules. The natural way
+to add it later is a shared "league code": one more event log, carried by the sync
+machinery already in place, holding a summary per finished game.
+
 ## Verifying the result
 
 Real money changes hands on the strength of the settle-up screen, so it proves its
@@ -152,6 +174,10 @@ ways, simultaneous buy-ins on both devices, an offline edit that reaches the oth
 device once the network returns, and that both devices derive *identical* figures
 from the same log (rounding ties break on player id precisely so two phones never
 disagree).
+
+`tests/history.test.mjs` covers the games list and season totals: a finished game
+surviving the start of the next one, totals aggregating across nights and summing
+to zero, switching back into a locked game, currency exclusion, and removal.
 
 `tests/verify.test.mjs` is the reconciliation suite: the €26.67/€26.66 regression,
 **6000 randomised games** (4000 correctly counted, 2000 deliberately miscounted and
