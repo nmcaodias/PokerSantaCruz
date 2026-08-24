@@ -1,10 +1,15 @@
 /* Offline shell for Poker Santa Cruz.
  *
- * Navigations are network-first so a deploy is picked up as soon as the phone
- * has signal, falling back to the cached page when it doesn't. Static assets
- * are cache-first. Anything cross-origin (the sync database) is left alone. */
+ * Navigations are served from cache immediately and refreshed in the
+ * background (stale-while-revalidate). Network-first meant every launch sat
+ * waiting on the network before showing anything, which at a table on poor
+ * signal is the difference between instant and several seconds. The cost is
+ * that a deploy is picked up on the next launch rather than this one.
+ *
+ * Static assets are cache-first. Anything cross-origin (the sync database) is
+ * left alone. */
 
-const CACHE = "psc-v1";
+const CACHE = "psc-v2";
 const SHELL = ["./", "./index.html", "./config.js", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
@@ -26,13 +31,19 @@ self.addEventListener("fetch", (e) => {
 
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put("./index.html", copy));
-          return res;
-        })
-        .catch(() => caches.match("./index.html").then((r) => r || caches.match("./")))
+      caches.match("./index.html").then((hit) => {
+        const fresh = fetch(req)
+          .then((res) => {
+            if (res && res.ok) {
+              const copy = res.clone();
+              caches.open(CACHE).then((c) => c.put("./index.html", copy));
+            }
+            return res;
+          })
+          .catch(() => hit);
+        // cached copy now, network in the background
+        return hit || fresh;
+      })
     );
     return;
   }

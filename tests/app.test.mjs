@@ -249,6 +249,51 @@ await page.waitForTimeout(250);
 s = await state();
 check('buy-ins ordered before their player still count', s.totalIn === '€40' && s.rows.length === 1, JSON.stringify(s));
 
+// --- 12c. rows are updated in place, not rebuilt -------------------------
+// Rebuilding the list replaced the very button being pressed, which cancelled
+// its press animation and made taps feel dropped.
+await page.evaluate(() => localStorage.clear());
+await page.goto('http://localhost:8099/#g=inplace');
+await page.waitForTimeout(250);
+await addPlayer('Ann'); await addPlayer('Bob');
+{
+  const kept = await page.evaluate(() => {
+    const before = document.querySelector('.card:nth-child(1) .plus');
+    before.click();
+    return before === document.querySelector('.card:nth-child(1) .plus');
+  });
+  await page.waitForTimeout(150);
+  check('the + button survives its own tap', kept, 'node was replaced mid-press');
+  s = await state();
+  check('an in-place update still records the buy-in', s.rows[0].meta.includes('2 buy-ins'), s.rows[0].meta);
+
+  // removing a player must actually drop its node, not leave a stale row
+  await page.click('.card:nth-child(1) .who button'); await page.waitForTimeout(120);
+  await page.click('#mRemove'); await page.waitForTimeout(120);
+  await page.click('#kOk'); await page.waitForTimeout(200);
+  s = await state();
+  check('a removed row is dropped from the list',
+    s.rows.length === 1 && s.rows[0].name === 'Bob', JSON.stringify(s.rows.map(r => r.name)));
+}
+
+// --- 12d. a reload straight after a tap keeps the buy-in ------------------
+// Saving happens after the frame now, so the page going away has to force it.
+{
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('http://localhost:8099/#g=flush');
+  await page.waitForTimeout(250);
+  await addPlayer('Zoe');
+  // click and reload in the same synchronous block, giving the deferred save
+  // no chance to run on its own
+  await page.evaluate(() => {
+    document.querySelector('.card:nth-child(1) .plus').click();
+    location.reload();
+  }).catch(() => {});
+  await page.waitForTimeout(600);
+  s = await state();
+  check('a buy-in survives an immediate reload', s.totalIn === '€10', s.totalIn);
+}
+
 // --- 13. no runtime errors ----------------------------------------------
 check('no console/page errors', errors.length === 0, errors.join(' | '));
 
